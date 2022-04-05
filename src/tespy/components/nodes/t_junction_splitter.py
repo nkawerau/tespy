@@ -14,10 +14,13 @@ import numpy as np
 
 from tespy.components.nodes.base import NodeBase
 from tespy.tools.data_containers import DataContainerSimple as dc_simple
+from tespy.tools.data_containers import ComponentProperties as dc_cp
 from tespy.tools.document_models import generate_latex_eq
 
+from tespy.tools.fluid_properties import v_mix_ph
 
-class Splitter(NodeBase):
+
+class TJunctionSplitter(NodeBase):
     r"""
     Split up a mass flow in parts of identical enthalpy and fluid composition.
 
@@ -114,45 +117,269 @@ class Splitter(NodeBase):
 
     @staticmethod
     def component():
-        return 'splitter'
+        return "T-JunctionSplitter"
 
-    @staticmethod
-    def get_variables():
-        return {'num_out': dc_simple()}
+    def get_variables(self):
+        return {
+            "pr1": dc_cp(
+                min_val=1e-4,
+                max_val=1,
+                num_eq=1,
+                deriv=self.pr_deriv,
+                func=self.pr_func,
+                func_params={"pr": "pr"},
+                latex=self.pr_func_doc,
+            ),
+            "pr2": dc_cp(
+                min_val=1e-4,
+                max_val=1,
+                num_eq=1,
+                deriv=self.pr_deriv,
+                func=self.pr_func,
+                func_params={"pr": "pr"},
+                latex=self.pr_func_doc,
+            ),
+            "zeta1": dc_cp(
+                min_val=0,
+                max_val=1e15,
+                num_eq=1,
+                latex=self.zeta_func_doc,
+                deriv=self.zeta_deriv,
+                func=self.zeta_func,
+                func_params={"zeta": "zeta1"},
+            ),
+            "zeta2": dc_cp(
+                min_val=0,
+                max_val=1e15,
+                num_eq=1,
+                latex=self.zeta_func_doc,
+                deriv=self.zeta_deriv,
+                func=self.zeta_func,
+                func_params={"zeta": "zeta2", "inconn": 0, "outconn": 1},
+            ),
+            "num_out": dc_simple(),
+        }
 
     def get_mandatory_constraints(self):
         return {
-            'mass_flow_constraints': {
-                'func': self.mass_flow_func, 'deriv': self.mass_flow_deriv,
-                'constant_deriv': True, 'latex': self.mass_flow_func_doc,
-                'num_eq': 1},
-            'fluid_constraints': {
-                'func': self.fluid_func, 'deriv': self.fluid_deriv,
-                'constant_deriv': True, 'latex': self.fluid_func_doc,
-                'num_eq': self.num_o * self.num_nw_fluids},
-            'energy_balance_constraints': {
-                'func': self.energy_balance_func,
-                'deriv': self.energy_balance_deriv,
-                'constant_deriv': True, 'latex': self.energy_balance_func_doc,
-                'num_eq': self.num_o},
-            'pressure_constraints': {
-                'func': self.pressure_equality_func,
-                'deriv': self.pressure_equality_deriv,
-                'constant_deriv': True,
-                'latex': self.pressure_equality_func_doc,
-                'num_eq': self.num_i + self.num_o - 1}
+            "mass_flow_constraints": {
+                "func": self.mass_flow_func,
+                "deriv": self.mass_flow_deriv,
+                "constant_deriv": True,
+                "latex": self.mass_flow_func_doc,
+                "num_eq": 1,
+            },
+            "fluid_constraints": {
+                "func": self.fluid_func,
+                "deriv": self.fluid_deriv,
+                "constant_deriv": True,
+                "latex": self.fluid_func_doc,
+                "num_eq": self.num_o * self.num_nw_fluids,
+            },
+            "enthalpy_equality_constraints": {
+                "func": self.enthalpy_equality_func,
+                "deriv": self.enthalpy_equality_deriv,
+                "constant_deriv": True,
+                "latex": self.enthalpy_equality_func_doc,
+                "num_eq": 2,
+            }
+            # 'energy_balance_constraints': {
+            #     'func': self.energy_balance_func,
+            #     'deriv': self.energy_balance_deriv,
+            #     'constant_deriv': True, 'latex': self.energy_balance_func_doc,
+            #     'num_eq': self.num_o},
+            # 'pressure_constraints': {
+            #     'func': self.pressure_equality_func,
+            #     'deriv': self.pressure_equality_deriv,
+            #     'constant_deriv': True,
+            #     'latex': self.pressure_equality_func_doc,
+            #     'num_eq': self.num_i + self.num_o - 1}
         }
 
     @staticmethod
     def inlets():
-        return ['in1']
+        return ["in1"]
 
     def outlets(self):
         if self.num_out.is_set:
-            return ['out' + str(i + 1) for i in range(self.num_out.val)]
+            return ["out" + str(i + 1) for i in range(self.num_out.val)]
         else:
             self.set_attr(num_out=2)
             return self.outlets()
+
+    def zeta_func(self, zeta="", inconn=0, outconn=0):
+        r"""
+        Calculate residual value of :math:`\zeta`-function.
+
+        Parameters
+        ----------
+        zeta : str
+            Component parameter to evaluate the zeta_func on, e.g.
+            :code:`zeta1`.
+
+        inconn : int
+            Connection index of inlet.
+
+        outconn : int
+            Connection index of outlet.
+
+        Returns
+        -------
+        residual : float
+            Residual value of function.
+
+            .. math::
+
+                0 = \begin{cases}
+                p_{in} - p_{out} & |\dot{m}| < \epsilon \\
+                \frac{\zeta}{D^4} - \frac{(p_{in} - p_{out}) \cdot \pi^2}
+                {8 \cdot \dot{m}_{in} \cdot |\dot{m}_{in}| \cdot \frac{v_{in} +
+                v_{out}}{2}} &
+                |\dot{m}| > \epsilon
+                \end{cases}
+
+        Note
+        ----
+        The zeta value is caluclated on the basis of a given pressure loss at
+        a given flow rate in the design case. As the cross sectional area A
+        will not change, it is possible to handle the equation in this way:
+
+        .. math::
+
+            \frac{\zeta}{D^4} = \frac{\Delta p \cdot \pi^2}
+            {8 \cdot \dot{m}^2 \cdot v}
+        """
+        data = self.get_attr(zeta)
+        i = self.inl[inconn].get_flow()
+        o = self.outl[outconn].get_flow()
+
+        if abs(i[0]) < 1e-4:
+            return i[1] - o[1]
+
+        else:
+
+            v_i = v_mix_ph(i, T0=self.inl[inconn].T.val_SI)
+            v_o = v_mix_ph(o, T0=self.outl[outconn].T.val_SI)
+
+            p = (
+                (data.val * 8 * abs(o[0]) * o[0] * (v_i + v_o) / 2) / (np.pi ** 2)
+            ) / 100
+
+            return data.val - (i[1] - o[1]) * np.pi ** 2 / (
+                8 * abs(o[0]) * o[0] * (v_i + v_o) / 2
+            )
+
+    def zeta_func_doc(self, label, zeta="", inconn=0, outconn=0):
+        r"""
+        Calculate residual value of :math:`\zeta`-function.
+
+        Parameters
+        ----------
+        zeta : str
+            Component parameter to evaluate the zeta_func on, e.g.
+            :code:`zeta1`.
+
+        inconn : int
+            Connection index of inlet.
+
+        outconn : int
+            Connection index of outlet.
+
+        Returns
+        -------
+        residual : float
+            Residual value of function.
+        """
+        inl = r"_\mathrm{in," + str(inconn + 1) + r"}"
+        outl = r"_\mathrm{out," + str(outconn + 1) + r"}"
+        latex = (
+            r"0 = \begin{cases}"
+            + "\n"
+            + r"p"
+            + inl
+            + r"- p"
+            + outl
+            + r" & |\dot{m}"
+            + inl
+            + r"| < \unitfrac[0.0001]{kg}{s} \\"
+            + "\n"
+            + r"\frac{\zeta}{D^4}-\frac{(p"
+            + inl
+            + r"-p"
+            + outl
+            + r")"
+            r"\cdot\pi^2}{8\cdot\dot{m}"
+            + inl
+            + r"\cdot|\dot{m}"
+            + inl
+            + r"|\cdot\frac{v"
+            + inl
+            + r" + v"
+            + outl
+            + r"}{2}}"
+            + r"& |\dot{m}"
+            + inl
+            + r"| \geq \unitfrac[0.0001]{kg}{s}"
+            + "\n"
+            r"\end{cases}"
+        )
+        return generate_latex_eq(self, latex, label)
+
+    def zeta_deriv(self, increment_filter, k, zeta="", inconn=0, outconn=0):
+        r"""
+        Calculate partial derivatives of zeta function.
+
+        Parameters
+        ----------
+        increment_filter : ndarray
+            Matrix for filtering non-changing variables.
+
+        k : int
+            Position of equation in Jacobian matrix.
+
+        zeta : str
+            Component parameter to evaluate the zeta_func on, e.g.
+            :code:`zeta1`.
+
+        inconn : int
+            Connection index of inlet.
+
+        outconn : int
+            Connection index of outlet.
+        """
+        data = self.get_attr(zeta)
+        f = self.zeta_func
+        outpos = self.num_i + outconn
+        if not increment_filter[inconn, 0]:
+            self.jacobian[k, inconn, 0] = self.numeric_deriv(
+                f, "m", inconn, zeta=zeta, inconn=inconn, outconn=outconn
+            )
+        if not increment_filter[inconn, 1]:
+            self.jacobian[k, inconn, 1] = self.numeric_deriv(
+                f, "p", inconn, zeta=zeta, inconn=inconn, outconn=outconn
+            )
+        if not increment_filter[inconn, 2]:
+            self.jacobian[k, inconn, 2] = self.numeric_deriv(
+                f, "h", inconn, zeta=zeta, inconn=inconn, outconn=outconn
+            )
+        if not increment_filter[outpos, 0]:
+            self.jacobian[k, outpos, 0] = self.numeric_deriv(
+                f, "m", inconn, zeta=zeta, inconn=inconn, outconn=outconn
+            )
+        if not increment_filter[outpos, 1]:
+            self.jacobian[k, outpos, 1] = self.numeric_deriv(
+                f, "p", outpos, zeta=zeta, inconn=inconn, outconn=outconn
+            )
+        if not increment_filter[outpos, 2]:
+            self.jacobian[k, outpos, 2] = self.numeric_deriv(
+                f, "h", outpos, zeta=zeta, inconn=inconn, outconn=outconn
+            )
+        # custom variable zeta
+        if data.is_var:
+            pos = self.num_i + self.num_o + data.var_pos
+            self.jacobian[k, pos, 0] = self.numeric_deriv(
+                f, zeta, 2, zeta=zeta, inconn=inconn, outconn=outconn
+            )
 
     def fluid_func(self):
         r"""
@@ -190,9 +417,9 @@ class Splitter(NodeBase):
             LaTeX code of equations applied.
         """
         latex = (
-            r'0 = x_{fl\mathrm{,in}} - x_{fl\mathrm{,out,}j}'
-            r'\; \forall fl \in \text{network fluids,} \; \forall j \in'
-            r'\text{outlets}'
+            r"0 = x_{fl\mathrm{,in}} - x_{fl\mathrm{,out,}j}"
+            r"\; \forall fl \in \text{network fluids,} \; \forall j \in"
+            r"\text{outlets}"
         )
         return generate_latex_eq(self, latex, label)
 
@@ -205,8 +432,9 @@ class Splitter(NodeBase):
         deriv : list
             Matrix with partial derivatives for the fluid equations.
         """
-        deriv = np.zeros((self.num_nw_fluids * self.num_o, 1 + self.num_o,
-                          self.num_nw_vars))
+        deriv = np.zeros(
+            (self.num_nw_fluids * self.num_o, 1 + self.num_o, self.num_nw_vars)
+        )
         k = 0
         for o in self.outl:
             i = 0
@@ -215,6 +443,75 @@ class Splitter(NodeBase):
                 deriv[i + k * self.num_nw_fluids, k + 1, i + 3] = -1
                 i += 1
             k += 1
+        return deriv
+
+    def enthalpy_equality_func(self):
+        r"""
+        Equation for enthalpy equality.
+
+        Returns
+        -------
+        residual : list
+            Residual values of equations.
+
+            .. math::
+
+                0 = h_{in,i} - h_{out,i} \;\forall i\in\text{inlets}
+        """
+        residual = []
+        residual += [self.inl[0].h.val_SI - self.outl[0].h.val_SI]
+        residual += [self.inl[0].h.val_SI - self.outl[1].h.val_SI]
+        # for i in range(self.num_i):
+        #     residual += [self.inl[i].h.val_SI - self.outl[i].h.val_SI]
+        #     residual += [self.inl[i].h.val_SI - self.outl[i+1].h.val_SI]
+        return residual
+
+    def enthalpy_equality_func_doc(self, label):
+        r"""
+        Equation for enthalpy equality.
+
+        Parameters
+        ----------
+        label : str
+            Label for equation.
+
+        Returns
+        -------
+        latex : str
+            LaTeX code of equations applied.
+        """
+        indices = list(range(1, self.num_i + 1))
+        if len(indices) > 1:
+            indices = ", ".join(str(idx) for idx in indices)
+        else:
+            indices = str(indices[0])
+        latex = (
+            r"0=h_{\mathrm{in,}i}-h_{\mathrm{out,}i}"
+            r"\; \forall i \in [" + indices + r"]"
+        )
+        return generate_latex_eq(self, latex, label)
+
+    def enthalpy_equality_deriv(self):
+        r"""
+        Calculate partial derivatives for all mass flow balance equations.
+
+        Returns
+        -------
+        deriv : ndarray
+            Matrix with partial derivatives for the mass flow balance
+            equations.
+        """
+        deriv = np.zeros((2, self.num_i + self.num_o + self.num_vars, self.num_nw_vars))
+        deriv[0, 0, 2] = 1
+        deriv[0, 1, 2] = -1
+
+        deriv[1, 0, 2] = 1
+        deriv[1, 2, 2] = -1
+
+        # for i in range(self.num_i):
+        #     deriv[i, i, 2] = 1
+        # for j in range(self.num_o):
+        #     deriv[j, j + i + 1, 2] = -1
         return deriv
 
     def energy_balance_func(self):
@@ -245,7 +542,7 @@ class Splitter(NodeBase):
         label : str
             Label for equation.
         """
-        latex = r'0=h_{in}-h_{\mathrm{out,}j}\;\forall j \in\text{outlets}'
+        latex = r"0=h_{in}-h_{\mathrm{out,}j}\;\forall j \in\text{outlets}"
         return generate_latex_eq(self, latex, label)
 
     def energy_balance_deriv(self):
@@ -265,6 +562,27 @@ class Splitter(NodeBase):
             k += 1
         return deriv
 
+    def calc_parameters(self):
+        r"""Postprocessing parameter calculation."""
+        i = self.inl[0].get_flow()
+        o1 = self.outl[0].get_flow()
+        o2 = self.outl[1].get_flow()
+
+        self.pr1.val = o1[1] / i[1]
+        self.pr2.val = o2[1] / i[1]
+
+        self.zeta1.val = (
+            (i[1] - o1[1])
+            * np.pi ** 2
+            / (4 * o1[0] ** 2 * (2 * self.outl[0].vol.val_SI))
+        )
+
+        self.zeta2.val = (
+            (i[1] - o2[1])
+            * np.pi ** 2
+            / (4 * o2[0] ** 2 * (2 * self.outl[1].vol.val_SI))
+        )
+
     def propagate_fluid_to_target(self, inconn, start):
         r"""
         Propagate the fluids towards connection's target in recursion.
@@ -280,8 +598,10 @@ class Splitter(NodeBase):
         """
         for outconn in self.outl:
             for fluid, x in inconn.fluid.val.items():
-                if (outconn.fluid.val_set[fluid] is False and
-                        outconn.good_starting_values is False):
+                if (
+                    outconn.fluid.val_set[fluid] is False
+                    and outconn.good_starting_values is False
+                ):
                     outconn.fluid.val[fluid] = x
 
             outconn.target.propagate_fluid_to_target(outconn, start)
@@ -301,8 +621,10 @@ class Splitter(NodeBase):
         """
         inconn = self.inl[0]
         for fluid, x in outconn.fluid.val.items():
-            if (inconn.fluid.val_set[fluid] is False and
-                    inconn.good_starting_values is False):
+            if (
+                inconn.fluid.val_set[fluid] is False
+                and inconn.good_starting_values is False
+            ):
                 inconn.fluid.val[fluid] = x
 
         inconn.source.propagate_fluid_to_source(inconn, start)
