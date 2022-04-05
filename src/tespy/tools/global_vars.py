@@ -17,11 +17,9 @@ gas_constants['uni'] = 8.314462618
 fluid_property_data = {
     'm': {
         'text': 'mass flow',
-        'SI_unit': 'kg / s',
-        'units': {
-            'kg / s': 1, 'kg / min': 1 / 60, 'kg / h': 1 / 3.6e3,
-            't / h': 1 / 3.6, 'g / s': 1 / 1e3
-        },
+        'SI_unit': 'g / s',
+        'units': {'g / s': 1, 'kg / s': 1e3, 'kg / min': (1 / 60) * 1e3, 'kg / h': (1 / 3600) * 1e3,
+                  't / h': (1 / 3600) * 1e6},
         'latex_eq': r'0 = \dot{m} - \dot{m}_\mathrm{spec}',
         'documentation': {'float_fmt': '{:,.3f}'}
     },
