@@ -7,7 +7,7 @@ from scipy.constants import e, Avogadro, R
 from tespy.tools.global_vars import molar_masses
 
 
-class AelCell(Component):
+class AlkalineWaterElectrolyzer(Component):
     """
     This is a component for the alkaline electrolysis of water.
 
@@ -18,7 +18,7 @@ class AelCell(Component):
 
     @staticmethod
     def component(self):
-        return "ael cell"
+        return "alkaline water electrolyzer"
 
     def get_variables(self):
         return {
