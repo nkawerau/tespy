@@ -238,8 +238,8 @@ class RectangularPipe(HeatExchangerSimple):
         v_i = v_mix_ph(i, T0=self.inl[0].T.val_SI)
         v_o = v_mix_ph(o, T0=self.outl[0].T.val_SI)
 
-        cross_sectional_area = self.H * self.W
-        perimeter = 2 * self.H + 2 * self.W
+        cross_sectional_area = self.H.val * self.W.val
+        perimeter = 2 * self.H.val + 2 * self.W.val
         hydraulic_diameter = 4 * cross_sectional_area / perimeter
 
         Re = abs(i[0]) * hydraulic_diameter / (cross_sectional_area * (visc_i + visc_o) / 2)
