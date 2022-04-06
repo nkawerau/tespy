@@ -12,6 +12,7 @@ SPDX-License-Identifier: MIT
 import numpy as np
 
 from tespy.components import Pipe
+from tespy.components import RectangularPipe
 from tespy.components import Sink
 from tespy.components import Source
 from tespy.components import Valve
@@ -89,3 +90,17 @@ class TestPiping:
         # NO TEST NEEDED AT THE MOMENT, THE PIPE PROPERTIES ARE IDENTICAL TO
         # THE PROPERTIES OF THE SIMPLE HEAT EXCHANGER. TESTS ARE LOCATED AT
         # heat_exchanger_tests.py
+
+    def test_RectangularPipe(self):
+        """Test component properties of pipe."""
+        instance = RectangularPipe('pipe')
+        self.setup_piping_network(instance)
+        # set attributes
+        instance.set_attr(ks=1e-4, L=100, H=0.2, W=0.2, Q=0)
+
+        # parameter specification
+        self.c1.set_attr(fluid={'H2O': 1}, m=10, p=10, T=50)
+        self.nw.solve('design')
+        convergence_check(self.nw.lin_dep)
+        self.nw.print_results()
+
