@@ -10,7 +10,24 @@ available from its original location tespy/components/piping/pipe.py
 SPDX-License-Identifier: MIT
 """
 
+
+
+import logging
+
+import numpy as np
+
 from tespy.components.heat_exchangers.simple import HeatExchangerSimple
+from tespy.tools.data_containers import ComponentCharacteristics as dc_cc
+from tespy.tools.data_containers import ComponentProperties as dc_cp
+from tespy.tools.data_containers import DataContainerSimple as dc_simple
+from tespy.tools.data_containers import GroupedComponentProperties as dc_gcp
+from tespy.tools.document_models import generate_latex_eq
+from tespy.tools.fluid_properties import T_mix_ph
+from tespy.tools.fluid_properties import s_mix_ph
+from tespy.tools.fluid_properties import v_mix_ph
+from tespy.tools.fluid_properties import visc_mix_ph
+from tespy.tools.helpers import convert_to_SI
+from tespy.tools.helpers import darcy_friction_factor as dff
 
 
 class RectangularPipe(HeatExchangerSimple):
@@ -78,8 +95,11 @@ class RectangularPipe(HeatExchangerSimple):
         Geometry independent friction coefficient,
         :math:`\frac{\zeta}{D^4}/\frac{1}{\text{m}^4}`.
 
-    D : float, dict, :code:`"var"`
-        Diameter of the pipes, :math:`D/\text{m}`.
+    H : float, dict, :code:`"var"`
+        Height of the pipes, :math:`H/\text{m}`.
+
+    W : float, dict, :code:`"var"`
+        Width of the pipes, :math:`H/\text{m}`.
 
     L : float, dict, :code:`"var"`
         Length of the pipes, :math:`L/\text{m}`.
@@ -150,3 +170,173 @@ class RectangularPipe(HeatExchangerSimple):
     @staticmethod
     def component():
         return 'rectangular pipe'
+
+    def get_variables(self):
+        return {
+            'Q': dc_cp(
+                deriv=self.energy_balance_deriv,
+                latex=self.energy_balance_func_doc, num_eq=1,
+                func=self.energy_balance_func),
+            'pr': dc_cp(
+                min_val=1e-4, max_val=1, num_eq=1,
+                deriv=self.pr_deriv, latex=self.pr_func_doc,
+                func=self.pr_func, func_params={'pr': 'pr'}),
+            'zeta': dc_cp(
+                min_val=0, max_val=1e15, num_eq=1,
+                deriv=self.zeta_deriv, func=self.zeta_func,
+                latex=self.zeta_func_doc,
+                func_params={'zeta': 'zeta'}),
+            'H': dc_cp(min_val=1e-3, max_val=2, d=1e-4),
+            'W': dc_cp(min_val=1e-3, max_val=2, d=1e-4),
+            'L': dc_cp(min_val=1e-2, d=1e-3),
+            'ks': dc_cp(val=1e-4, min_val=1e-7, max_val=1e-3, d=1e-8),
+            'kA': dc_cp(min_val=0, d=1),
+            'kA_char': dc_cc(param='m'), 'Tamb': dc_cp(),
+            'dissipative': dc_simple(val=True),
+            'hydro_group': dc_gcp(
+                elements=['L', 'ks', 'H', 'W'], num_eq=1,
+                latex=self.hydro_group_func_doc,
+                func=self.hydro_group_func, deriv=self.hydro_group_deriv),
+            'kA_group': dc_gcp(
+                elements=['kA', 'Tamb'], num_eq=1,
+                latex=self.kA_group_func_doc,
+                func=self.kA_group_func, deriv=self.kA_group_deriv),
+            'kA_char_group': dc_gcp(
+                elements=['kA_char', 'Tamb'], num_eq=1,
+                latex=self.kA_char_group_func_doc,
+                func=self.kA_char_group_func, deriv=self.kA_char_group_deriv)
+        }
+
+    def darcy_func(self):
+        r"""
+        Equation for pressure drop calculation from darcy friction factor.
+
+        Returns
+        -------
+        residual : float
+            Residual value of equation.
+
+            .. math::
+
+                0 = p_{in} - p_{out} - \frac{8 \cdot |\dot{m}_{in}| \cdot
+                \dot{m}_{in} \cdot \frac{v_{in}+v_{out}}{2} \cdot L \cdot
+                \lambda\left(Re, ks, D\right)}{\pi^2 \cdot D^5}\\
+
+                Re = \frac{4 \cdot |\dot{m}_{in}|}{\pi \cdot D \cdot
+                \frac{\eta_{in}+\eta_{out}}{2}}\\
+                \eta: \text{dynamic viscosity}\\
+                v: \text{specific volume}\\
+                \lambda: \text{darcy friction factor}
+        """
+        i, o = self.inl[0].get_flow(), self.outl[0].get_flow()
+
+        if abs(i[0]) < 1e-4:
+            return i[1] - o[1]
+
+        visc_i = visc_mix_ph(i, T0=self.inl[0].T.val_SI)
+        visc_o = visc_mix_ph(o, T0=self.outl[0].T.val_SI)
+        v_i = v_mix_ph(i, T0=self.inl[0].T.val_SI)
+        v_o = v_mix_ph(o, T0=self.outl[0].T.val_SI)
+
+        cross_sectional_area = self.H * self.W
+        perimeter = 2 * self.H + 2 * self.W
+        hydraulic_diameter = 4 * cross_sectional_area / perimeter
+
+        Re = abs(i[0]) * hydraulic_diameter / (cross_sectional_area * (visc_i + visc_o) / 2)
+
+        return ((i[1] - o[1]) - abs(i[0]) * i[0] * (v_i + v_o) / 2 *
+                self.L.val * dff(Re, self.ks.val, hydraulic_diameter) /
+                (2 * hydraulic_diameter * cross_sectional_area**2))
+
+    def darcy_func_doc(self, label):
+        r"""
+        Equation for pressure drop calculation from darcy friction factor.
+
+        Parameters
+        ----------
+        label : str
+            Label for equation.
+
+        Returns
+        -------
+        latex : str
+            LaTeX code of equations applied.
+        """
+        latex = (
+            r'\begin{split}' + '\n'
+            r'0 = &p_\mathrm{in}-p_\mathrm{out}-'
+            r'\frac{8\cdot|\dot{m}_\mathrm{in}| \cdot\dot{m}_\mathrm{in}'
+            r'\cdot \frac{v_\mathrm{in}+v_\mathrm{out}}{2} \cdot L \cdot'
+            r'\lambda\left(Re, ks, D\right)}{\pi^2 \cdot D^5}\\' + '\n'
+            r'Re =&\frac{4 \cdot |\dot{m}_\mathrm{in}|}{\pi \cdot D \cdot'
+            r'\frac{\eta_\mathrm{in}+\eta_\mathrm{out}}{2}}\\' + '\n'
+            r'\end{split}'
+        )
+        return generate_latex_eq(self, latex, label)
+
+    def hazen_williams_func(self):
+        r"""
+        Equation for pressure drop calculation from Hazen-Williams equation.
+
+        Returns
+        -------
+        residual : float
+            Residual value of equation.
+
+            .. math::
+
+                0 = \left(p_{in} - p_{out} \right) \cdot \left(-1\right)^i -
+                \frac{10.67 \cdot |\dot{m}_{in}| ^ {1.852}
+                \cdot L}{ks^{1.852} \cdot D^{4.871}} \cdot g \cdot
+                \left(\frac{v_{in} + v_{out}}{2}\right)^{0.852}
+
+                i = \begin{cases}
+                0 & \dot{m}_{in} \geq 0\\
+                1 & \dot{m}_{in} < 0
+                \end{cases}
+
+        Note
+        ----
+        Gravity :math:`g` is set to :math:`9.81 \frac{m}{s^2}`
+        """
+        i, o = self.inl[0].get_flow(), self.outl[0].get_flow()
+
+        if abs(i[0]) < 1e-4:
+            return i[1] - o[1]
+
+        v_i = v_mix_ph(i, T0=self.inl[0].T.val_SI)
+        v_o = v_mix_ph(o, T0=self.outl[0].T.val_SI)
+
+        cross_sectional_area = self.H * self.W
+        perimeter = 2 * self.H + 2 * self.W
+        hydraulic_diameter = 4 * cross_sectional_area / perimeter
+
+        return ((i[1] - o[1]) * np.sign(i[0]) -
+                (10.67 * abs(i[0]) ** 1.852 * self.L.val /
+                 (self.ks.val ** 1.852 * hydraulic_diameter ** 4.871)) *
+                (9.81 * ((v_i + v_o) / 2) ** 0.852))
+
+    def hazen_williams_func_doc(self, label):
+        r"""
+        Equation for pressure drop calculation from Hazen-Williams equation.
+
+        Parameters
+        ----------
+        label : str
+            Label for equation.
+
+        Returns
+        -------
+        latex : str
+            LaTeX code of equations applied.
+        """
+        latex = (
+            r'0 = \left(p_\mathrm{in} - p_\mathrm{out} \right) -'
+            r'\frac{10.67 \cdot |\dot{m}_\mathrm{in}| ^ {1.852}'
+            r'\cdot L}{ks^{1.852} \cdot D^{4.871}} \cdot g \cdot'
+            r'\left(\frac{v_\mathrm{in}+ v_\mathrm{out}}{2}\right)^{0.852}'
+        )
+        return generate_latex_eq(self, latex, label)
+
+
+
