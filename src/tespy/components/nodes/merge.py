@@ -308,7 +308,7 @@ class Merge(NodeBase):
         ls = []
         if any(num_fl.values()) and not all(num_fl.values()):
             for conn, num in num_fl.items():
-                if num == 1:
+                if num >= 1:
                     ls += [conn]
 
             for c in ls:
