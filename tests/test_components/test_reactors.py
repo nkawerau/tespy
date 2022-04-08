@@ -17,6 +17,7 @@ import numpy as np
 from tespy.components import Sink
 from tespy.components import Source
 from tespy.components import WaterElectrolyzer
+from tespy.components import AlkalineWaterElectrolyzer
 from tespy.connections import Bus
 from tespy.connections import Connection
 from tespy.networks import Network
@@ -179,3 +180,35 @@ class TestReactors:
                str(self.instance.Q.val) + '.')
         assert round(Q, 0) == round(self.instance.Q.val, 0), msg
         shutil.rmtree('./tmp', ignore_errors=True)
+
+
+    def setup(self):
+        """Set up network for alkaline water electrolyzer tests."""
+        self.nw = Network(['TS::H2', 'TS::H2O', 'TS::KOH', 'TS::O2'], T_unit='C', p_unit='bar')
+        self.instance = AlkalineWaterElectrolyzer('electrolyzer')
+        self.instance.set_attr(pr=0.99)
+
+        # component definition
+        source_cathode_stream = Source("source_cathode_stream")
+        sink_cathode_stream = Sink("sink_cathode_stream")
+        source_anode_stream = Source("source_anode_stream")
+        sink_anode_stream = Sink("sink_anode_stream")
+
+        self.nw.add_conns(Connection(source_cathode_stream, 'out1', self.instance, 'in1',
+                           fluid={'H2': 1, 'H2O': 0.7, 'KOH': 0.3, 'O2': 0}, T=20, p=1), "cathode_in")
+
+        self.nw.add_conns(Connection(source_anode_stream, 'out1', self.instance, 'in1',
+                           fluid={'H2': 1, 'H2O': 0.7, 'KOH': 0.3, 'O2': 0}, T=20, p=1), "anode_in")
+
+        self.nw.add_conns(Connection(self.instance, 'out1', sink_cathode_stream, 'in1'))
+
+        self.nw.add_conns(Connection(self.instance, 'out1', sink_anode_stream, 'in1'))
+
+    def test_AlkalineWaterElectrolyzer(self):
+        """Test component properties of alkaline water electrolyzer."""
+
+        for half_cell in ["cathode_in", "anode_in"]:
+            self.nw.get_conn(half_cell).set_attr(T=20, p=1, m=1)
+
+        self.nw.solve('design')
+
