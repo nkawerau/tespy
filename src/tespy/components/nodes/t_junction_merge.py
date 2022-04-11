@@ -19,7 +19,7 @@ from tespy.tools.fluid_properties import s_mix_pT
 from tespy.tools.helpers import num_fluids
 
 
-class Merge(NodeBase):
+class TJunctionMerge(NodeBase):
     r"""
     Class for merge points with multiple inflows and one outflow.
 
@@ -125,7 +125,7 @@ class Merge(NodeBase):
 
     @staticmethod
     def component():
-        return 'merge'
+        return 'T-junction merge'
 
     @staticmethod
     def get_variables():

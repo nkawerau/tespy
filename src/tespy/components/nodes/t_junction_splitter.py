@@ -117,7 +117,7 @@ class TJunctionSplitter(NodeBase):
 
     @staticmethod
     def component():
-        return "T-JunctionSplitter"
+        return "T-junction splitter"
 
     def get_variables(self):
         return {
@@ -188,6 +188,7 @@ class TJunctionSplitter(NodeBase):
             #     'deriv': self.energy_balance_deriv,
             #     'constant_deriv': True, 'latex': self.energy_balance_func_doc,
             #     'num_eq': self.num_o},
+            #
             # 'pressure_constraints': {
             #     'func': self.pressure_equality_func,
             #     'deriv': self.pressure_equality_deriv,
@@ -461,9 +462,11 @@ class TJunctionSplitter(NodeBase):
         residual = []
         residual += [self.inl[0].h.val_SI - self.outl[0].h.val_SI]
         residual += [self.inl[0].h.val_SI - self.outl[1].h.val_SI]
+
         # for i in range(self.num_i):
         #     residual += [self.inl[i].h.val_SI - self.outl[i].h.val_SI]
         #     residual += [self.inl[i].h.val_SI - self.outl[i+1].h.val_SI]
+
         return residual
 
     def enthalpy_equality_func_doc(self, label):
