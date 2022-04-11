@@ -1,7 +1,6 @@
 import numpy as np
 from tespy.components.component import Component
 from tespy.tools import ComponentProperties as dc_cp
-from tespy.tools import fluid_properties as fp
 
 from scipy.constants import e, Avogadro, R
 from tespy.tools.global_vars import molar_masses
@@ -30,7 +29,7 @@ class AlkalineWaterElectrolyzer(Component):
                 func=self.pr_func,
                 func_params={"pr": "pr"},
                 latex=self.pr_func_doc,
-            ),
+            )
         }
 
     def get_mandatory_constraints(self):
@@ -483,7 +482,7 @@ class AlkalineWaterElectrolyzer(Component):
         volume_flow_anode = 0.3  # 3.2755530 * (number_of_cells / 80)  # [m^3/hr]
 
         stack_voltage = number_of_cells * 1.8  # [V]
-        stack_current_density = 0  # [A/cm^2]
+        stack_current_density = 0.4  # [A/cm^2]
         active_cell_surface = 2710  # [cm^2]
         faraday_efficiency = 1  # 0.953
         stack_current = (
