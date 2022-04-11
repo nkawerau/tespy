@@ -38,6 +38,9 @@ from tespy.tools.data_containers import GroupedComponentProperties as dc_gcp
 from tespy.tools.global_vars import err
 from tespy.tools.global_vars import fluid_property_data as fpd
 
+import numba
+from numba import njit
+
 # Only require cupy if Cuda shall be used
 try:
     import cupy as cu
@@ -1822,6 +1825,11 @@ class Network:
                 print('-' * 8 + '+----------' * 5 + '+' + '-' * 9)
             print(msg)
 
+    @staticmethod
+    @njit(nopython=True, parallel=True)
+    def solve_with_numba(jaco, resi):
+        return np.linalg.inv(jaco).dot(-resi)
+
     def matrix_inversion(self):
         """Invert matrix of derivatives and caluclate increment."""
         self.lin_dep = True
@@ -1833,8 +1841,7 @@ class Network:
                     cu.linalg.inv(cu.asarray(self.jacobian)),
                     -cu.asarray(self.residual)))
             else:
-                self.increment = np.linalg.inv(
-                    self.jacobian).dot(-self.residual)
+                self.increment = Network.solve_with_numba(self.jacobian, self.residual)
             self.lin_dep = False
         except np.linalg.linalg.LinAlgError:
             self.increment = self.residual * 0
