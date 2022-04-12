@@ -392,7 +392,7 @@ class HeatExchangerSimple(Component):
         """
         i, o = self.inl[0].get_flow(), self.outl[0].get_flow()
 
-        if abs(i[0]) < 1e-4:
+        if abs(i[0]/1e3) < 1e-4:
             return i[1] - o[1]
 
         visc_i = visc_mix_ph(i, T0=self.inl[0].T.val_SI)
@@ -400,9 +400,9 @@ class HeatExchangerSimple(Component):
         v_i = v_mix_ph(i, T0=self.inl[0].T.val_SI)
         v_o = v_mix_ph(o, T0=self.outl[0].T.val_SI)
 
-        Re = 4 * abs(i[0]) / (np.pi * self.D.val * (visc_i + visc_o) / 2)
+        Re = 4 * abs(i[0]/1e3) / (np.pi * self.D.val * (visc_i + visc_o) / 2)
 
-        return ((i[1] - o[1]) - 8 * abs(i[0]) * i[0] * (v_i + v_o) / 2 *
+        return ((i[1] - o[1]) - 8 * abs(i[0]/1e3) * i[0]/1e3 * (v_i + v_o) / 2 *
                 self.L.val * dff(Re, self.ks.val, self.D.val) /
                 (np.pi ** 2 * self.D.val ** 5))
 
@@ -459,14 +459,14 @@ class HeatExchangerSimple(Component):
         """
         i, o = self.inl[0].get_flow(), self.outl[0].get_flow()
 
-        if abs(i[0]) < 1e-4:
+        if abs(i[0]/1e3) < 1e-4:
             return i[1] - o[1]
 
         v_i = v_mix_ph(i, T0=self.inl[0].T.val_SI)
         v_o = v_mix_ph(o, T0=self.outl[0].T.val_SI)
 
-        return ((i[1] - o[1]) * np.sign(i[0]) -
-                (10.67 * abs(i[0]) ** 1.852 * self.L.val /
+        return ((i[1] - o[1]) * np.sign(i[0]/1e3) -
+                (10.67 * abs(i[0]/1e3) ** 1.852 * self.L.val /
                  (self.ks.val ** 1.852 * self.D.val ** 4.871)) *
                 (9.81 * ((v_i + v_o) / 2) ** 0.852))
 
