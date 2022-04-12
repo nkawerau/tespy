@@ -2480,30 +2480,30 @@ class Network:
             c.good_starting_values = True
             c.T.val_SI = fp.T_mix_ph(flow, T0=c.T.val_SI)
             fluid = hlp.single_fluid(c.fluid.val)
-            if (fluid is None and
-                    abs(
-                        fp.h_mix_pT(flow, c.T.val_SI) - c.h.val_SI
-                    ) > (err*1e6) ** .5):
-                c.T.val_SI = np.nan
-                c.vol.val_SI = np.nan
-                c.v.val_SI = np.nan
-                c.s.val_SI = np.nan
-                msg = (
-                    'Could not find a feasible value for mixture temperature '
-                    'at connection ' + c.label + '. The values for '
-                    'temperature, specific volume, volumetric flow and '
-                    'entropy are set to nan.')
-                logging.error(msg)
-
-            else:
-                c.vol.val_SI = fp.v_mix_ph(flow, T0=c.T.val_SI)
-                c.v.val_SI = c.vol.val_SI * c.m.val_SI
-                c.s.val_SI = fp.s_mix_ph(flow, T0=c.T.val_SI)
-                if fluid is not None:
-                    if not c.x.val_set:
-                        c.x.val_SI = fp.Q_ph(c.p.val_SI, c.h.val_SI, fluid)
-                    if not c.Td_bp.val_set:
-                        c.Td_bp.val_SI = np.nan
+            # if (fluid is None and
+            #         abs(
+            #             fp.h_mix_pT(flow, c.T.val_SI) - c.h.val_SI
+            #         ) > (err*1e6) ** .5):
+            #     c.T.val_SI = np.nan
+            #     c.vol.val_SI = np.nan
+            #     c.v.val_SI = np.nan
+            #     c.s.val_SI = np.nan
+            #     msg = (
+            #         'Could not find a feasible value for mixture temperature '
+            #         'at connection ' + c.label + '. The values for '
+            #         'temperature, specific volume, volumetric flow and '
+            #         'entropy are set to nan.')
+            #     logging.error(msg)
+            #
+            # else:
+            c.vol.val_SI = fp.v_mix_ph(flow, T0=c.T.val_SI)
+            c.v.val_SI = c.vol.val_SI * c.m.val_SI
+            c.s.val_SI = fp.s_mix_ph(flow, T0=c.T.val_SI)
+            if fluid is not None:
+                if not c.x.val_set:
+                    c.x.val_SI = fp.Q_ph(c.p.val_SI, c.h.val_SI, fluid)
+                if not c.Td_bp.val_set:
+                    c.Td_bp.val_SI = np.nan
 
             for prop in fpd.keys():
                 c.get_attr(prop).val = hlp.convert_from_SI(

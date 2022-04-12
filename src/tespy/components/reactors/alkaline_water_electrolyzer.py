@@ -494,9 +494,9 @@ class AlkalineWaterElectrolyzer(Component):
 
         """electrochemistry"""
         # molar mass in [kg/mol]
-        molar_mass_H2O = molar_masses["H2O"]
-        molar_mass_H2 = molar_masses["H2"]
-        molar_mass_O2 = molar_masses["O2"]
+        molar_mass_H2O = molar_masses["H2O"] * 1e3
+        molar_mass_H2 = molar_masses["H2"] * 1e3
+        molar_mass_O2 = molar_masses["O2"] * 1e3
         molar_mass_OH = (molar_mass_H2 + molar_mass_O2) / 2
 
         # current in [A]

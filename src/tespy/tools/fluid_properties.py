@@ -459,19 +459,19 @@ class Memorise:
                 Memorise.v_ph[fl] = np.empty((0, num_fl + 4), float)
                 Memorise.visc_ph[fl] = np.empty((0, num_fl + 4), float)
                 Memorise.s_ph[fl] = np.empty((0, num_fl + 4), float)
-    
+
                 msg = (
                     'Added fluids ' + ', '.join(fl) +
                     ' to memorise lookup tables.')
                 logging.debug(msg)
-    
+
             for f, back_end in fluids.items():
                 if f not in Memorise.state and back_end != 'TESPy':
                     # create CoolProp.AbstractState object
                     try:
                         Memorise.state[f] = CP.AbstractState(back_end, f)
                         Memorise.back_end[f] = back_end
-    
+
                     except ValueError:
                         msg = (
                             'Could not find the fluid "' + f + '" in the fluid '
@@ -481,7 +481,7 @@ class Memorise:
                             'air.')
                         logging.warning(msg)
                         continue
-    
+
                     msg = (
                         'Created CoolProp.AbstractState object for fluid ' +
                         f + ' with back end ' + back_end + '.')
@@ -497,14 +497,14 @@ class Memorise:
                             'Could not find values for maximum and minimum '
                             'pressure.')
                         logging.warning(msg)
-    
+
                     # temperature range
                     Tmin = Memorise.state[f].trivial_keyed_output(CP.iT_min)
                     Tmax = Memorise.state[f].trivial_keyed_output(CP.iT_max)
 
                     # value range for fluid properties
                     Memorise.value_range[f] = [pmin, pmax, Tmin, Tmax]
-    
+
                     try:
                         molar_masses[f] = Memorise.state[f].molar_mass()
                         gas_constants[f] = Memorise.state[f].gas_constant()
@@ -519,17 +519,17 @@ class Memorise:
                                 'Could not find values for molar mass and gas '
                                 'constant.')
                             logging.warning(msg)
-    
+
                     msg = (
                         'Specifying fluid property ranges for pressure and '
                         'temperature for convergence check of fluid ' + f + '.')
                     logging.debug(msg)
-    
+
                     # print(Memorise.value_range[f])
                     # print(molar_masses[f])
                     # print(gas_constants[f])
                     # print(gas_constants['uni'])
-    
+
                 elif back_end == 'TESPy':
                     pmin = TESPyFluid.fluids[f].p[0]
                     pmax = TESPyFluid.fluids[f].p[-1]
@@ -653,11 +653,11 @@ def T_mix_ph(flow, T0=300):
     if Memorise.thermosteam['use']==True:
         for fluid, mass_fraction in flow[3].items():
             if fluid == 'H2' or fluid == 'O2':
-                Memorise.thermosteam['stream'].set_flow(mass_fraction * flow[0], "kg/s", ("g", fluid))
+                Memorise.thermosteam['stream'].set_flow(mass_fraction * flow[0]/1e3, "kg/s", ("g", fluid))
             else:
-                Memorise.thermosteam['stream'].set_flow(mass_fraction*flow[0], "kg/s", ("l", fluid))
+                Memorise.thermosteam['stream'].set_flow(mass_fraction * flow[0]/1e3, "kg/s", ("l", fluid))
 
-        Memorise.thermosteam['stream'].set_property("H", flow[2]*flow[0], "kJ/hr")
+        Memorise.thermosteam['stream'].set_property("H", flow[2] * flow[0]/1e3, "kJ/hr")
         Memorise.thermosteam['stream'].set_property("P", flow[1], "Pa")
 
         val = Memorise.thermosteam['stream'].T #[K]
@@ -956,9 +956,9 @@ def h_mix_pT(flow, T, force_gas=False):
     if Memorise.thermosteam['use']==True:
         for fluid, mass_fraction in flow[3].items():
             if fluid == 'H2' or fluid == 'O2':
-                Memorise.thermosteam['stream'].set_flow(mass_fraction * flow[0], "kg/s", ("g", fluid))
+                Memorise.thermosteam['stream'].set_flow(mass_fraction * flow[0]/1e3, "kg/s", ("g", fluid))
             else:
-                Memorise.thermosteam['stream'].set_flow(mass_fraction*flow[0], "kg/s", ("l", fluid))
+                Memorise.thermosteam['stream'].set_flow(mass_fraction * flow[0]/1e3, "kg/s", ("l", fluid))
 
         Memorise.thermosteam['stream'].set_property("T", T, "K")
         Memorise.thermosteam['stream'].set_property("P", flow[1], "Pa")
@@ -1378,11 +1378,11 @@ def v_mix_ph(flow, T0=300):
     if Memorise.thermosteam['use']==True:
         for fluid, mass_fraction in flow[3].items():
             if fluid == 'H2' or fluid == 'O2':
-                Memorise.thermosteam['stream'].set_flow(mass_fraction * flow[0], "kg/s", ("g", fluid))
+                Memorise.thermosteam['stream'].set_flow(mass_fraction * flow[0]/1e3, "kg/s", ("g", fluid))
             else:
-                Memorise.thermosteam['stream'].set_flow(mass_fraction*flow[0], "kg/s", ("l", fluid))
+                Memorise.thermosteam['stream'].set_flow(mass_fraction * flow[0]/1e3, "kg/s", ("l", fluid))
 
-        Memorise.thermosteam['stream'].set_property("H", flow[2]*flow[0], "kJ/hr")
+        Memorise.thermosteam['stream'].set_property("H", flow[2] * flow[0]/1e3, "kJ/hr")
         Memorise.thermosteam['stream'].set_property("P", flow[1], "Pa")
 
         val = Memorise.thermosteam['stream'].F_vol / Memorise.thermosteam['stream'].F_mass #[m3/kg]
@@ -1565,9 +1565,9 @@ def v_mix_pT(flow, T):
     if Memorise.thermosteam['use']==True:
         for fluid, mass_fraction in flow[3].items():
             if fluid == 'H2' or fluid == 'O2':
-                Memorise.thermosteam['stream'].set_flow(mass_fraction * flow[0], "kg/s", ("g", fluid))
+                Memorise.thermosteam['stream'].set_flow(mass_fraction * flow[0]/1e3, "kg/s", ("g", fluid))
             else:
-                Memorise.thermosteam['stream'].set_flow(mass_fraction*flow[0], "kg/s", ("l", fluid))
+                Memorise.thermosteam['stream'].set_flow(mass_fraction * flow[0]/1e3, "kg/s", ("l", fluid))
 
         # Memorise.thermosteam['stream'].show(flow="kg/s")
 
@@ -1692,11 +1692,11 @@ def visc_mix_ph(flow, T0=300):
     if Memorise.thermosteam['use']==True:
         for fluid, mass_fraction in flow[3].items():
             if fluid == 'H2' or fluid == 'O2':
-                Memorise.thermosteam['stream'].set_flow(mass_fraction * flow[0], "kg/s", ("g", fluid))
+                Memorise.thermosteam['stream'].set_flow(mass_fraction * flow[0]/1e3, "kg/s", ("g", fluid))
             else:
-                Memorise.thermosteam['stream'].set_flow(mass_fraction*flow[0], "kg/s", ("l", fluid))
+                Memorise.thermosteam['stream'].set_flow(mass_fraction * flow[0]/1e3, "kg/s", ("l", fluid))
 
-        Memorise.thermosteam['stream'].set_property("H", flow[2]*flow[0], "kJ/hr")
+        Memorise.thermosteam['stream'].set_property("H", flow[2] * flow[0]/1e3, "kJ/hr")
         Memorise.thermosteam['stream'].set_property("P", flow[1], "Pa")
 
         val = Memorise.thermosteam['stream'].mu
@@ -1795,9 +1795,9 @@ def visc_mix_pT(flow, T):
     if Memorise.thermosteam['use']==True:
         for fluid, mass_fraction in flow[3].items():
             if fluid == 'H2' or fluid == 'O2':
-                Memorise.thermosteam['stream'].set_flow(mass_fraction * flow[0], "kg/s", ("g", fluid))
+                Memorise.thermosteam['stream'].set_flow(mass_fraction * flow[0]/1e3, "kg/s", ("g", fluid))
             else:
-                Memorise.thermosteam['stream'].set_flow(mass_fraction*flow[0], "kg/s", ("l", fluid))
+                Memorise.thermosteam['stream'].set_flow(mass_fraction * flow[0]/1e3, "kg/s", ("l", fluid))
 
         Memorise.thermosteam['stream'].set_property("T", T, "K")
         Memorise.thermosteam['stream'].set_property("P", flow[1], "Pa")
@@ -1893,11 +1893,11 @@ def s_mix_ph(flow, T0=300):
     if Memorise.thermosteam['use']==True:
         for fluid, mass_fraction in flow[3].items():
             if fluid == 'H2' or fluid == 'O2':
-                Memorise.thermosteam['stream'].set_flow(mass_fraction * flow[0], "kg/s", ("g", fluid))
+                Memorise.thermosteam['stream'].set_flow(mass_fraction * flow[0]/1e3, "kg/s", ("g", fluid))
             else:
-                Memorise.thermosteam['stream'].set_flow(mass_fraction*flow[0], "kg/s", ("l", fluid))
+                Memorise.thermosteam['stream'].set_flow(mass_fraction * flow[0]/1e3, "kg/s", ("l", fluid))
 
-        Memorise.thermosteam['stream'].set_property("H", flow[2]*flow[0], "kJ/hr")
+        Memorise.thermosteam['stream'].set_property("H", flow[2] * flow[0]/1e3, "kJ/hr")
         Memorise.thermosteam['stream'].set_property("P", flow[1], "Pa")
 
         val = (Memorise.thermosteam['stream'].S / Memorise.thermosteam['stream'].F_mass)*1000 #[J/(kg*K)]
@@ -1993,9 +1993,9 @@ def s_mix_pT(flow, T, force_gas=False):
     if Memorise.thermosteam['use']==True:
         for fluid, mass_fraction in flow[3].items():
             if fluid == 'H2' or fluid == 'O2':
-                Memorise.thermosteam['stream'].set_flow(mass_fraction * flow[0], "kg/s", ("g", fluid))
+                Memorise.thermosteam['stream'].set_flow(mass_fraction * flow[0]/1e3, "kg/s", ("g", fluid))
             else:
-                Memorise.thermosteam['stream'].set_flow(mass_fraction*flow[0], "kg/s", ("l", fluid))
+                Memorise.thermosteam['stream'].set_flow(mass_fraction * flow[0]/1e3, "kg/s", ("l", fluid))
 
         Memorise.thermosteam['stream'].set_property("T", T, "K")
         Memorise.thermosteam['stream'].set_property("P", flow[1], "Pa")
@@ -2263,7 +2263,7 @@ def get_mass_flow_properties(mol): # mol -> kmol/h
 
     mass_concentration_no_water = component_mass_no_water / component_mass.sum()
     overall_molar_mass = component_mass.sum() / component_amount_of_substance.sum()  # g/mol
-    mass_flow = component_mass.sum() / 1000 # kg/s
+    mass_flow = component_mass.sum()  # g/s
     return [mass_concentration_no_water, overall_molar_mass, mass_flow]
 
 def Vl(mol, T, P=None):  # m3
@@ -2296,7 +2296,7 @@ def Hl(mol, T, P=None): # J / K
     #Cp = lambda T: ec.Laliberte_heat_capacity(T, mass_concentration_no_water, Memorise.thermosteam['CASs_no_water'])* mass_flow # [J/(K*s)]
 
     #H = integrate.quad(Cp, 298.15, T)[0]
-    H = 3000 * mass_flow * (T-298.15)
+    H = 3.000 * mass_flow * (T-298.15)
     return H # [J/s]
 
 
