@@ -1384,14 +1384,14 @@ class Component:
         i = self.inl[inconn].get_flow()
         o = self.outl[outconn].get_flow()
 
-        if abs(i[0]) < 1e-4:
+        if abs(i[0]/1e3) < 1e-4:
             return i[1] - o[1]
 
         else:
             v_i = v_mix_ph(i, T0=self.inl[inconn].T.val_SI)
             v_o = v_mix_ph(o, T0=self.outl[outconn].T.val_SI)
             return (data.val - (i[1] - o[1]) * np.pi ** 2 /
-                    (8 * abs(i[0]) * i[0] * (v_i + v_o) / 2))
+                    (8 * abs(i[0]/1e3) * i[0]/1e3 * (v_i + v_o) / 2))
 
     def zeta_func_doc(self, label, zeta='', inconn=0, outconn=0):
         r"""
