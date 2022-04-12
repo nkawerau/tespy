@@ -106,7 +106,7 @@ class Cell(Subsystem):
 
 """Set up network for alkaline water electrolyzer tests."""
 # system properties
-number_of_cells = 52
+number_of_cells = 2
 reference_number_of_cells = 95
 
 H2_mass_fraction = 0
@@ -320,7 +320,7 @@ for i in range(1, number_of_cells + 1):
 
 """Test component properties of alkaline water electrolyzer."""
 for half_cell in ["cathode1_n1", "anode1_n1"]:
-    fn.get_conn(half_cell).set_attr(T=20, p=1, m=2, fluid={'H2': 0, 'H2O': 0.7, 'KOH': 0.3, 'O2': 0})
+    fn.get_conn(half_cell).set_attr(T=70, p=6.39, m=0.128, fluid={'H2': 0, 'H2O': 0.7, 'KOH': 0.3, 'O2': 0})
 
 fn.solve('design')
 #fn.print_results()
