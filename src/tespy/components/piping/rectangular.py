@@ -230,7 +230,7 @@ class RectangularPipe(HeatExchangerSimple):
         """
         i, o = self.inl[0].get_flow(), self.outl[0].get_flow()
 
-        if abs(i[0]) < 1e-4:
+        if abs(i[0]/1e3) < 1e-4:
             return i[1] - o[1]
 
         visc_i = visc_mix_ph(i, T0=self.inl[0].T.val_SI)
@@ -242,9 +242,9 @@ class RectangularPipe(HeatExchangerSimple):
         perimeter = 2 * self.H.val + 2 * self.W.val
         hydraulic_diameter = 4 * cross_sectional_area / perimeter
 
-        Re = abs(i[0]) * hydraulic_diameter / (cross_sectional_area * (visc_i + visc_o) / 2)
+        Re = abs(i[0]/1e3) * hydraulic_diameter / (cross_sectional_area * (visc_i + visc_o) / 2)
 
-        return ((i[1] - o[1]) - abs(i[0]) * i[0] * (v_i + v_o) / 2 *
+        return ((i[1] - o[1]) - abs(i[0]/1e3) * i[0]/1e3 * (v_i + v_o) / 2 *
                 self.L.val * dff(Re, self.ks.val, hydraulic_diameter) /
                 (2 * hydraulic_diameter * cross_sectional_area**2))
 
@@ -301,7 +301,7 @@ class RectangularPipe(HeatExchangerSimple):
         """
         i, o = self.inl[0].get_flow(), self.outl[0].get_flow()
 
-        if abs(i[0]) < 1e-4:
+        if abs(i[0]/1e3) < 1e-4:
             return i[1] - o[1]
 
         v_i = v_mix_ph(i, T0=self.inl[0].T.val_SI)
@@ -311,8 +311,8 @@ class RectangularPipe(HeatExchangerSimple):
         perimeter = 2 * self.H + 2 * self.W
         hydraulic_diameter = 4 * cross_sectional_area / perimeter
 
-        return ((i[1] - o[1]) * np.sign(i[0]) -
-                (10.67 * abs(i[0]) ** 1.852 * self.L.val /
+        return ((i[1] - o[1]) * np.sign(i[0]/1e3) -
+                (10.67 * abs(i[0]/1e3) ** 1.852 * self.L.val /
                  (self.ks.val ** 1.852 * hydraulic_diameter ** 4.871)) *
                 (9.81 * ((v_i + v_o) / 2) ** 0.852))
 
