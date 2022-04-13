@@ -1456,7 +1456,7 @@ class Component:
         if not increment_filter[inconn, 0]:
             self.jacobian[k, inconn, 0] = self.numeric_deriv(
                 f, 'm', inconn, zeta=zeta, inconn=inconn, outconn=outconn)
-        if not increment_filter[inconn, 2]:
+        if not increment_filter[inconn, 1]:
             self.jacobian[k, inconn, 1] = self.numeric_deriv(
                 f, 'p', inconn, zeta=zeta, inconn=inconn, outconn=outconn)
         if not increment_filter[inconn, 2]:
