@@ -22,6 +22,7 @@ from .nodes.splitter import Splitter  # noqa: F401
 from .piping.pipe import Pipe  # noqa: F401
 from .piping.rectangular import RectangularPipe  # noqa: F401
 from .piping.valve import Valve  # noqa: F401
+from .piping.flow_resistor import FlowResistor  # noqa: F401
 from .reactors.water_electrolyzer import WaterElectrolyzer  # noqa: F401
 from .reactors.alkaline_water_electrolyzer import AlkalineWaterElectrolyzer  # noqa: F401
 from .subsystem import Subsystem  # noqa: F401
