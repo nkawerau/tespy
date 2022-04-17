@@ -26,7 +26,7 @@ A = (np.pi/4)*(d**2)
 new_splitter = TJunctionSplitter("splitter", num_out=2, zeta1=1, zeta2=1, A=(np.pi/4)*(d**2))
 
 #merge = TJunctionMerge("merge")
-new_merge = TJunctionMerge("merge", num_in=2, zeta1=2, zeta2=1, A=(np.pi/4)*(d**2))
+new_merge = TJunctionMerge("merge", num_in=2, zeta1=1, zeta2=1, A=(np.pi/4)*(d**2))
 
 valve1 = Valve("valve1", zeta=1/(d**4))
 valve2 = Valve("valve2", zeta=1/(d**4))
@@ -141,12 +141,12 @@ if False:
 
 # splitter - merge system
 if True:
-    source_splitter = Connection(source, "out1", splitter, "in1", "source-splitter")
+    source_splitter = Connection(source, "out1", new_splitter, "in1", "source-splitter")
     #source_splitter.m.val0 = mass_flow
 
-    splitter_merge1 = Connection(splitter, "out1", new_merge, "in1", "splitter-merge1")
+    splitter_merge1 = Connection(new_splitter, "out1", new_merge, "in1", "splitter-merge1")
     #splitter_merge1.m.val0 = mass_flow/2
-    splitter_merge2 = Connection(splitter, "out2", new_merge, "in2", "splitter-merge2")
+    splitter_merge2 = Connection(new_splitter, "out2", new_merge, "in2", "splitter-merge2")
     #splitter_merge1.m.val0 = mass_flow/2
 
     merge_sink1 = Connection(new_merge, "out1", sink1, "in1", "merge-sink")
