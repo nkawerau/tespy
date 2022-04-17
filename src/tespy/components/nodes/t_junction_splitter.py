@@ -163,28 +163,20 @@ class TJunctionSplitter(NodeBase):
 
     def get_mandatory_constraints(self):
         return {
-            "mass_flow_constraints": {
-                "func": self.mass_flow_func,
-                "deriv": self.mass_flow_deriv,
-                "constant_deriv": True,
-                "latex": self.mass_flow_func_doc,
-                "num_eq": 1,
-            },
-            "fluid_constraints": {
-                "func": self.fluid_func,
-                "deriv": self.fluid_deriv,
-                "constant_deriv": True,
-                "latex": self.fluid_func_doc,
-                "num_eq": self.num_o * self.num_nw_fluids,
-            },
-            "enthalpy_equality_constraints": {
-                "func": self.enthalpy_equality_func,
-                "deriv": self.enthalpy_equality_deriv,
-                "constant_deriv": True,
-                "latex": self.enthalpy_equality_func_doc,
-                "num_eq": 2,
+            'mass_flow_constraints': {
+                'func': self.mass_flow_func, 'deriv': self.mass_flow_deriv,
+                'constant_deriv': True, 'latex': self.mass_flow_func_doc,
+                'num_eq': 1},
+            'fluid_constraints': {
+                'func': self.fluid_func, 'deriv': self.fluid_deriv,
+                'constant_deriv': True, 'latex': self.fluid_func_doc,
+                'num_eq': self.num_o * self.num_nw_fluids},
+            'energy_balance_constraints': {
+                'func': self.energy_balance_func,
+                'deriv': self.energy_balance_deriv,
+                'constant_deriv': True, 'latex': self.energy_balance_func_doc,
+                'num_eq': self.num_o},
             }
-        }
 
     @staticmethod
     def inlets():
@@ -430,77 +422,6 @@ class TJunctionSplitter(NodeBase):
             k += 1
         return deriv
 
-    def enthalpy_equality_func(self):
-        r"""
-        Equation for enthalpy equality.
-
-        Returns
-        -------
-        residual : list
-            Residual values of equations.
-
-            .. math::
-
-                0 = h_{in,i} - h_{out,i} \;\forall i\in\text{inlets}
-        """
-        residual = []
-        residual += [self.inl[0].h.val_SI - self.outl[0].h.val_SI]
-        residual += [self.inl[0].h.val_SI - self.outl[1].h.val_SI]
-
-        # for i in range(self.num_i):
-        #     residual += [self.inl[i].h.val_SI - self.outl[i].h.val_SI]
-        #     residual += [self.inl[i].h.val_SI - self.outl[i+1].h.val_SI]
-
-        return residual
-
-    def enthalpy_equality_func_doc(self, label):
-        r"""
-        Equation for enthalpy equality.
-
-        Parameters
-        ----------
-        label : str
-            Label for equation.
-
-        Returns
-        -------
-        latex : str
-            LaTeX code of equations applied.
-        """
-        indices = list(range(1, self.num_i + 1))
-        if len(indices) > 1:
-            indices = ", ".join(str(idx) for idx in indices)
-        else:
-            indices = str(indices[0])
-        latex = (
-            r"0=h_{\mathrm{in,}i}-h_{\mathrm{out,}i}"
-            r"\; \forall i \in [" + indices + r"]"
-        )
-        return generate_latex_eq(self, latex, label)
-
-    def enthalpy_equality_deriv(self):
-        r"""
-        Calculate partial derivatives for all mass flow balance equations.
-
-        Returns
-        -------
-        deriv : ndarray
-            Matrix with partial derivatives for the mass flow balance
-            equations.
-        """
-        deriv = np.zeros((2, self.num_i + self.num_o + self.num_vars, self.num_nw_vars))
-        deriv[0, 0, 2] = 1
-        deriv[0, 1, 2] = -1
-
-        deriv[1, 0, 2] = 1
-        deriv[1, 2, 2] = -1
-
-        # for i in range(self.num_i):
-        #     deriv[i, i, 2] = 1
-        # for j in range(self.num_o):
-        #     deriv[j, j + i + 1, 2] = -1
-        return deriv
-
     def energy_balance_func(self):
         r"""
         Calculate energy balance.
@@ -529,7 +450,7 @@ class TJunctionSplitter(NodeBase):
         label : str
             Label for equation.
         """
-        latex = r"0=h_{in}-h_{\mathrm{out,}j}\;\forall j \in\text{outlets}"
+        latex = r'0=h_{in}-h_{\mathrm{out,}j}\;\forall j \in\text{outlets}'
         return generate_latex_eq(self, latex, label)
 
     def energy_balance_deriv(self):
@@ -553,10 +474,9 @@ class TJunctionSplitter(NodeBase):
         r"""Postprocessing parameter calculation."""
         i = self.inl[0].get_flow()
         o1 = self.outl[0].get_flow()
-        o2 = self.outl[1].get_flow()
 
         self.pr1.val = o1[1] / i[1]
-        self.pr2.val = o2[1] / i[1]
+
 
         self.zeta1.val = (
             (i[1] - o1[1])
@@ -564,11 +484,15 @@ class TJunctionSplitter(NodeBase):
             / (4 * o1[0] ** 2 * (2 * self.outl[0].vol.val_SI))
         )
 
-        self.zeta2.val = (
-            (i[1] - o2[1])
-            * np.pi ** 2
-            / (4 * o2[0] ** 2 * (2 * self.outl[1].vol.val_SI))
-        )
+        if self.num_o == 2:
+            o2 = self.outl[1].get_flow()
+            self.pr2.val = o2[1] / i[1]
+
+            self.zeta2.val = (
+                (i[1] - o2[1])
+                * np.pi ** 2
+                / (4 * o2[0] ** 2 * (2 * self.outl[1].vol.val_SI))
+            )
 
     def propagate_fluid_to_target(self, inconn, start):
         r"""
