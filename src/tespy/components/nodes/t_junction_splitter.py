@@ -158,6 +158,7 @@ class TJunctionSplitter(NodeBase):
                 func_params={"zeta": "zeta2", "inconn": 0, "outconn": 1},
             ),
             "num_out": dc_simple(),
+            "A": dc_simple(),
         }
 
     def get_mandatory_constraints(self):
@@ -183,18 +184,6 @@ class TJunctionSplitter(NodeBase):
                 "latex": self.enthalpy_equality_func_doc,
                 "num_eq": 2,
             }
-            # 'energy_balance_constraints': {
-            #     'func': self.energy_balance_func,
-            #     'deriv': self.energy_balance_deriv,
-            #     'constant_deriv': True, 'latex': self.energy_balance_func_doc,
-            #     'num_eq': self.num_o},
-            #
-            # 'pressure_constraints': {
-            #     'func': self.pressure_equality_func,
-            #     'deriv': self.pressure_equality_deriv,
-            #     'constant_deriv': True,
-            #     'latex': self.pressure_equality_func_doc,
-            #     'num_eq': self.num_i + self.num_o - 1}
         }
 
     @staticmethod
@@ -254,21 +243,11 @@ class TJunctionSplitter(NodeBase):
         i = self.inl[inconn].get_flow()
         o = self.outl[outconn].get_flow()
 
-        if abs(i[0]) < 1e-4:
-            return i[1] - o[1]
+        v_i = v_mix_ph(i, T0=self.inl[inconn].T.val_SI)
+        v_o = v_mix_ph(o, T0=self.outl[outconn].T.val_SI)
 
-        else:
-
-            v_i = v_mix_ph(i, T0=self.inl[inconn].T.val_SI)
-            v_o = v_mix_ph(o, T0=self.outl[outconn].T.val_SI)
-
-            p = (
-                (data.val * 8 * abs(o[0]) * o[0] * (v_i + v_o) / 2) / (np.pi ** 2)
-            ) / 100
-
-            return data.val - (i[1] - o[1]) * np.pi ** 2 / (
-                8 * abs(o[0]) * o[0] * (v_i + v_o) / 2
-            )
+        return ((i[1] - o[1]) - data.val * abs(o[0]) * o[0] * ((v_i + v_o) / 2) /
+                (2 * self.A.val**2))
 
     def zeta_func_doc(self, label, zeta="", inconn=0, outconn=0):
         r"""
@@ -366,6 +345,11 @@ class TJunctionSplitter(NodeBase):
         if not increment_filter[outpos, 0]:
             self.jacobian[k, outpos, 0] = self.numeric_deriv(
                 f, "m", inconn, zeta=zeta, inconn=inconn, outconn=outconn
+            )
+
+        if not increment_filter[outpos, 0]:
+            self.jacobian[k, outpos, 0] = self.numeric_deriv(
+                f, "m", outpos, zeta=zeta, inconn=inconn, outconn=outconn
             )
         if not increment_filter[outpos, 1]:
             self.jacobian[k, outpos, 1] = self.numeric_deriv(

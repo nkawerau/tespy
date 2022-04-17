@@ -14,9 +14,12 @@ import numpy as np
 
 from tespy.components.nodes.base import NodeBase
 from tespy.tools.data_containers import DataContainerSimple as dc_simple
+from tespy.tools.data_containers import ComponentProperties as dc_cp
 from tespy.tools.document_models import generate_latex_eq
 from tespy.tools.fluid_properties import s_mix_pT
 from tespy.tools.helpers import num_fluids
+
+from tespy.tools.fluid_properties import v_mix_ph
 
 
 class TJunctionMerge(NodeBase):
@@ -127,9 +130,47 @@ class TJunctionMerge(NodeBase):
     def component():
         return 'T-junction merge'
 
-    @staticmethod
-    def get_variables():
-        return {'num_in': dc_simple()}
+    def get_variables(self):
+        return {
+            "pr1": dc_cp(
+                min_val=1e-4,
+                max_val=1,
+                num_eq=1,
+                deriv=self.pr_deriv,
+                func=self.pr_func,
+                func_params={"pr": "pr"},
+                latex=self.pr_func_doc,
+            ),
+            "pr2": dc_cp(
+                min_val=1e-4,
+                max_val=1,
+                num_eq=1,
+                deriv=self.pr_deriv,
+                func=self.pr_func,
+                func_params={"pr": "pr"},
+                latex=self.pr_func_doc,
+            ),
+            "zeta1": dc_cp(
+                min_val=0,
+                max_val=1e15,
+                num_eq=1,
+                latex=self.zeta_func_doc,
+                deriv=self.zeta_deriv,
+                func=self.zeta_func,
+                func_params={"zeta": "zeta1", "inconn": 0, "outconn": 0},
+            ),
+            "zeta2": dc_cp(
+                min_val=0,
+                max_val=1e15,
+                num_eq=1,
+                latex=self.zeta_func_doc,
+                deriv=self.zeta_deriv,
+                func=self.zeta_func,
+                func_params={"zeta": "zeta2", "inconn": 1, "outconn": 0},
+            ),
+            "num_in": dc_simple(),
+            "A": dc_simple(),
+        }
 
     def get_mandatory_constraints(self):
         return {
@@ -146,12 +187,12 @@ class TJunctionMerge(NodeBase):
                 'deriv': self.energy_balance_deriv,
                 'constant_deriv': False, 'latex': self.energy_balance_func_doc,
                 'num_eq': 1},
-            'pressure_constraints': {
-                'func': self.pressure_equality_func,
-                'deriv': self.pressure_equality_deriv,
-                'constant_deriv': True,
-                'latex': self.pressure_equality_func_doc,
-                'num_eq': self.num_i + self.num_o - 1}
+            # 'pressure_constraints': {
+            #     'func': self.pressure_equality_func,
+            #     'deriv': self.pressure_equality_deriv,
+            #     'constant_deriv': True,
+            #     'latex': self.pressure_equality_func_doc,
+            #     'num_eq': self.num_i + self.num_o - 1}
         }
 
     def inlets(self):
@@ -164,6 +205,175 @@ class TJunctionMerge(NodeBase):
     @staticmethod
     def outlets():
         return ['out1']
+
+    def zeta_func(self, zeta="", inconn=0, outconn=0):
+        r"""
+        Calculate residual value of :math:`\zeta`-function.
+
+        Parameters
+        ----------
+        zeta : str
+            Component parameter to evaluate the zeta_func on, e.g.
+            :code:`zeta1`.
+
+        inconn : int
+            Connection index of inlet.
+
+        outconn : int
+            Connection index of outlet.
+
+        Returns
+        -------
+        residual : float
+            Residual value of function.
+
+            .. math::
+
+                0 = \begin{cases}
+                p_{in} - p_{out} & |\dot{m}| < \epsilon \\
+                \frac{\zeta}{D^4} - \frac{(p_{in} - p_{out}) \cdot \pi^2}
+                {8 \cdot \dot{m}_{in} \cdot |\dot{m}_{in}| \cdot \frac{v_{in} +
+                v_{out}}{2}} &
+                |\dot{m}| > \epsilon
+                \end{cases}
+
+        Note
+        ----
+        The zeta value is caluclated on the basis of a given pressure loss at
+        a given flow rate in the design case. As the cross sectional area A
+        will not change, it is possible to handle the equation in this way:
+
+        .. math::
+
+            \frac{\zeta}{D^4} = \frac{\Delta p \cdot \pi^2}
+            {8 \cdot \dot{m}^2 \cdot v}
+        """
+        data = self.get_attr(zeta)
+        i = self.inl[inconn].get_flow()
+        o = self.outl[outconn].get_flow()
+
+        v_i = v_mix_ph(i, T0=self.inl[inconn].T.val_SI)
+        v_o = v_mix_ph(o, T0=self.outl[outconn].T.val_SI)
+
+        return ((i[1] - o[1]) - data.val * abs(i[0]) * i[0] * ((v_i + v_o) / 2) /
+                (2 * self.A.val**2))
+
+    def zeta_func_doc(self, label, zeta="", inconn=0, outconn=0):
+        r"""
+        Calculate residual value of :math:`\zeta`-function.
+
+        Parameters
+        ----------
+        zeta : str
+            Component parameter to evaluate the zeta_func on, e.g.
+            :code:`zeta1`.
+
+        inconn : int
+            Connection index of inlet.
+
+        outconn : int
+            Connection index of outlet.
+
+        Returns
+        -------
+        residual : float
+            Residual value of function.
+        """
+        inl = r"_\mathrm{in," + str(inconn + 1) + r"}"
+        outl = r"_\mathrm{out," + str(outconn + 1) + r"}"
+        latex = (
+            r"0 = \begin{cases}"
+            + "\n"
+            + r"p"
+            + inl
+            + r"- p"
+            + outl
+            + r" & |\dot{m}"
+            + inl
+            + r"| < \unitfrac[0.0001]{kg}{s} \\"
+            + "\n"
+            + r"\frac{\zeta}{D^4}-\frac{(p"
+            + inl
+            + r"-p"
+            + outl
+            + r")"
+            r"\cdot\pi^2}{8\cdot\dot{m}"
+            + inl
+            + r"\cdot|\dot{m}"
+            + inl
+            + r"|\cdot\frac{v"
+            + inl
+            + r" + v"
+            + outl
+            + r"}{2}}"
+            + r"& |\dot{m}"
+            + inl
+            + r"| \geq \unitfrac[0.0001]{kg}{s}"
+            + "\n"
+            r"\end{cases}"
+        )
+        return generate_latex_eq(self, latex, label)
+
+    def zeta_deriv(self, increment_filter, k, zeta="", inconn=0, outconn=0):
+        r"""
+        Calculate partial derivatives of zeta function.
+
+        Parameters
+        ----------
+        increment_filter : ndarray
+            Matrix for filtering non-changing variables.
+
+        k : int
+            Position of equation in Jacobian matrix.
+
+        zeta : str
+            Component parameter to evaluate the zeta_func on, e.g.
+            :code:`zeta1`.
+
+        inconn : int
+            Connection index of inlet.
+
+        outconn : int
+            Connection index of outlet.
+        """
+        data = self.get_attr(zeta)
+        f = self.zeta_func
+        outpos = self.num_i + outconn
+        if not increment_filter[inconn, 0]:
+            self.jacobian[k, inconn, 0] = self.numeric_deriv(
+                f, "m", inconn, zeta=zeta, inconn=inconn, outconn=outconn
+            )
+        if not increment_filter[inconn, 1]:
+            self.jacobian[k, inconn, 1] = self.numeric_deriv(
+                f, "p", inconn, zeta=zeta, inconn=inconn, outconn=outconn
+            )
+        if not increment_filter[inconn, 2]:
+            self.jacobian[k, inconn, 2] = self.numeric_deriv(
+                f, "h", inconn, zeta=zeta, inconn=inconn, outconn=outconn
+            )
+        if not increment_filter[outpos, 0]:
+            self.jacobian[k, outpos, 0] = self.numeric_deriv(
+                f, "m", inconn, zeta=zeta, inconn=inconn, outconn=outconn
+            )
+
+        if not increment_filter[outpos, 0]:
+            self.jacobian[k, outpos, 0] = self.numeric_deriv(
+                f, "m", outpos, zeta=zeta, inconn=inconn, outconn=outconn
+            )
+        if not increment_filter[outpos, 1]:
+            self.jacobian[k, outpos, 1] = self.numeric_deriv(
+                f, "p", outpos, zeta=zeta, inconn=inconn, outconn=outconn
+            )
+        if not increment_filter[outpos, 2]:
+            self.jacobian[k, outpos, 2] = self.numeric_deriv(
+                f, "h", outpos, zeta=zeta, inconn=inconn, outconn=outconn
+            )
+        # custom variable zeta
+        if data.is_var:
+            pos = self.num_i + self.num_o + data.var_pos
+            self.jacobian[k, pos, 0] = self.numeric_deriv(
+                f, zeta, 2, zeta=zeta, inconn=inconn, outconn=outconn
+            )
 
     def fluid_func(self):
         r"""

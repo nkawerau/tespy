@@ -1,4 +1,4 @@
-from tespy.components import Sink, Source, Splitter, Merge, Pipe, Valve, TJunctionSplitter
+from tespy.components import Sink, Source, Splitter, Merge, Pipe, Valve, TJunctionSplitter, TJunctionMerge
 from tespy.connections import Connection
 from tespy.networks import Network
 import numpy as np
@@ -17,13 +17,16 @@ rho = 1000  # kg/m3
 mass_flow = volume_flow * rho # kg/s
 
 source = Source("source")
+source2 = Source("source2")
 sink1 = Sink("sink1")
 sink2 = Sink("sink2")
 
 splitter = Splitter("splitter")
-new_splitter = TJunctionSplitter("splitter", num_out=2, zeta1=1/(d**4), zeta2=1/(d**4))
+A = (np.pi/4)*(d**2)
+new_splitter = TJunctionSplitter("splitter", num_out=2, zeta1=1, zeta2=1, A=(np.pi/4)*(d**2))
 
-merge = Merge("merge")
+#merge = TJunctionMerge("merge")
+new_merge = TJunctionMerge("merge", num_in=2, zeta1=2, zeta2=1, A=(np.pi/4)*(d**2))
 
 valve1 = Valve("valve1", zeta=1/(d**4))
 valve2 = Valve("valve2", zeta=1/(d**4))
@@ -58,7 +61,7 @@ nw2 = Network(
 T0 = 30
 p0 = 2
 
-#nw.set_attr(m_range=[1e-3, mass_flow], p_range=[p0-0.1, p0])
+nw1.set_attr(m_range=[1e-3, mass_flow], p_range=[p0-0.1, p0])
 
 # splitter - valve system with velocity = 1m/s, zeta = 1 --> dp=5 mbar
 if False:
@@ -79,7 +82,7 @@ if False:
     nw1.print_results()
 
 # splitter - valve - merge system with velocity = 1m/s, zeta = 1 --> dp=5 mbar
-if True:
+if False:
     way1 = mass_flow/2
     way2 = mass_flow - way1
 
@@ -122,25 +125,41 @@ if False:
     nw2.solve(mode="design")
     nw2.print_results()
 
+# merge system
+if False:
+    source_merge = Connection(source, "out1", new_merge, "in1", "source-merge1")
+    source2_merge = Connection(source2, "out1", new_merge, "in2", "source-merge2")
+    merge_sink1 = Connection(new_merge, "out1", sink1, "in1", "merge-sink1")
+
+    nw2.add_conns(source_merge, source2_merge, merge_sink1)
+
+    nw2.get_conn("source-merge1").set_attr(T=T0, p=p0, m=mass_flow, fluid={"H2O": 1})
+    nw2.get_conn("source-merge2").set_attr(T=T0, m=mass_flow, fluid={"H2O": 1})
+
+    nw2.solve(mode="design")
+    nw2.print_results()
+
 # splitter - merge system
 if True:
-    source_splitter = Connection(source, "out1", new_splitter, "in1", "source-splitter")
+    source_splitter = Connection(source, "out1", splitter, "in1", "source-splitter")
     #source_splitter.m.val0 = mass_flow
 
-    splitter_merge1 = Connection(new_splitter, "out1", merge, "in1", "splitter-merge1")
+    splitter_merge1 = Connection(splitter, "out1", new_merge, "in1", "splitter-merge1")
     #splitter_merge1.m.val0 = mass_flow/2
-    splitter_merge2 = Connection(new_splitter, "out2", merge, "in2", "splitter-merge2")
+    splitter_merge2 = Connection(splitter, "out2", new_merge, "in2", "splitter-merge2")
     #splitter_merge1.m.val0 = mass_flow/2
 
-    merge_sink1 = Connection(merge, "out1", sink1, "in1", "merge-sink")
+    merge_sink1 = Connection(new_merge, "out1", sink1, "in1", "merge-sink")
     #merge_sink1.m.val0 = mass_flow
 
     nw2.add_conns(source_splitter, splitter_merge1, splitter_merge2, merge_sink1)
 
-    nw2.get_conn("source-splitter").set_attr(T=T0, p=p0, m=mass_flow, fluid={"H2O": 1}, state='l')
-    nw2.get_conn("splitter-merge1").set_attr(state='l')
-    nw2.get_conn("splitter-merge2").set_attr(state='l')
-    nw2.get_conn("merge-sink").set_attr(state='l')
+    nw2.get_conn("source-splitter").set_attr(T=T0, p=p0, m=mass_flow, fluid={"H2O": 1})
+    #nw2.get_conn("splitter-merge1").set_attr(m=mass_flow/2)
+
+    # nw2.get_conn("splitter-merge1").set_attr(state='l')
+    # nw2.get_conn("splitter-merge2").set_attr(state='l')
+    # nw2.get_conn("merge-sink").set_attr(state='l')
 
     nw2.solve(mode="design")
     nw2.print_results()
@@ -166,7 +185,7 @@ if False:
     nw2.print_results()
 
 
-convergence_check(nw2.lin_dep)
+#convergence_check(nw2.lin_dep)
 
 # msg = ('Pressure results of the splitter network ' + str(nw2.results['Connection'].p['splitter-sink1']) +
 #        ' must be the same as the valve network ' + str(nw1.results['Connection'].p['valve1-sink1']) + '.')
