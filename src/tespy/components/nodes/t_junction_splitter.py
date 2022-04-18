@@ -158,7 +158,6 @@ class TJunctionSplitter(NodeBase):
                 func_params={"zeta": "zeta2", "inconn": 0, "outconn": 1},
             ),
             "num_out": dc_simple(),
-            "A": dc_simple(),
         }
 
     def get_mandatory_constraints(self):
@@ -239,7 +238,7 @@ class TJunctionSplitter(NodeBase):
         v_o = v_mix_ph(o, T0=self.outl[outconn].T.val_SI)
 
         return ((i[1] - o[1]) - data.val * abs(o[0]) * o[0] * ((v_i + v_o) / 2) /
-                (2 * self.A.val**2))
+                2)
 
     def zeta_func_doc(self, label, zeta="", inconn=0, outconn=0):
         r"""

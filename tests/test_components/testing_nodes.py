@@ -23,11 +23,11 @@ sink2 = Sink("sink2")
 
 splitter = Splitter("splitter")
 A = (np.pi/4)*(d**2)
-new_splitter = TJunctionSplitter("splitter", num_out=2, zeta1=10, zeta2=1, A=(np.pi/4)*(d**2))
-#new_splitter = TJunctionSplitter("splitter", num_out=1, zeta1=1, A=(np.pi/4)*(d**2))
+new_splitter = TJunctionSplitter("splitter", num_out=2, zeta1=1/A**2, zeta2=1/A**2)
+#new_splitter = TJunctionSplitter("splitter", num_out=1, zeta1=1/A**2)
 
 #merge = TJunctionMerge("merge")
-new_merge = TJunctionMerge("merge", num_in=2, zeta1=1, zeta2=1, A=(np.pi/4)*(d**2))
+new_merge = TJunctionMerge("merge", num_in=2, zeta1=1/A**2, zeta2=1/A**2)
 #new_merge = TJunctionMerge("merge", num_in=1, zeta1=1, A=(np.pi/4)*(d**2))
 
 valve1 = Valve("valve1", zeta=1/(d**4))
@@ -117,13 +117,13 @@ if False:
 if False:
     source_splitter = Connection(source, "out1", new_splitter, "in1", "source-splitter")
     splitter_sink1 = Connection(new_splitter, "out1", sink1, "in1", "splitter-sink1")
-    #splitter_sink2 = Connection(new_splitter, "out2", sink2, "in1", "splitter-sink2")
+    splitter_sink2 = Connection(new_splitter, "out2", sink2, "in1", "splitter-sink2")
 
-    #nw2.add_conns(source_splitter, splitter_sink1, splitter_sink2)
-    nw2.add_conns(source_splitter, splitter_sink1)
+    nw2.add_conns(source_splitter, splitter_sink1, splitter_sink2)
+    #nw2.add_conns(source_splitter, splitter_sink1)
 
     nw2.get_conn("source-splitter").set_attr(T=T0, p=p0, m=mass_flow, fluid={"H2O": 1})
-    #nw2.get_conn("splitter-sink1").set_attr(m=mass_flow/2)
+    nw2.get_conn("splitter-sink1").set_attr(m=mass_flow/2)
 
     nw2.solve(mode="design")
     nw2.print_results()

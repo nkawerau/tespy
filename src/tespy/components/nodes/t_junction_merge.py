@@ -169,7 +169,6 @@ class TJunctionMerge(NodeBase):
                 func_params={"zeta": "zeta2", "inconn": 1, "outconn": 0},
             ),
             "num_in": dc_simple(),
-            "A": dc_simple(),
         }
 
     def get_mandatory_constraints(self):
@@ -256,7 +255,7 @@ class TJunctionMerge(NodeBase):
         v_o = v_mix_ph(o, T0=self.outl[outconn].T.val_SI)
 
         return ((i[1] - o[1]) - data.val * abs(i[0]) * i[0] * ((v_i + v_o) / 2) /
-                (2 * self.A.val**2))
+                2)
 
     def zeta_func_doc(self, label, zeta="", inconn=0, outconn=0):
         r"""
@@ -518,7 +517,7 @@ class TJunctionMerge(NodeBase):
         ls = []
         if any(num_fl.values()) and not all(num_fl.values()):
             for conn, num in num_fl.items():
-                if num == 1:
+                if num >= 1:
                     ls += [conn]
 
             for c in ls:
