@@ -14,6 +14,7 @@ SPDX-License-Identifier: MIT
 
 import logging
 
+from scipy.misc import derivative
 import numpy as np
 
 from tespy.components.heat_exchangers.simple import HeatExchangerSimple
@@ -28,6 +29,8 @@ from tespy.tools.fluid_properties import v_mix_ph
 from tespy.tools.fluid_properties import visc_mix_ph
 from tespy.tools.helpers import convert_to_SI
 from tespy.tools.helpers import darcy_friction_factor as dff
+
+
 
 
 class RectangularPipe(HeatExchangerSimple):
@@ -338,5 +341,79 @@ class RectangularPipe(HeatExchangerSimple):
         )
         return generate_latex_eq(self, latex, label)
 
+    def hydro_group_deriv(self, increment_filter, k):
+        r"""
+        Calculate partial derivatives of hydro group (pressure drop).
 
+        Parameters
+        ----------
+        increment_filter : ndarray
+            Matrix for filtering non-changing variables.
 
+        k : int
+            Position of derivatives in Jacobian matrix (k-th equation).
+        """
+
+        i, o = self.inl[0].get_flow(), self.outl[0].get_flow()
+
+        visc_i = visc_mix_ph(i, T0=self.inl[0].T.val_SI)
+        visc_o = visc_mix_ph(o, T0=self.outl[0].T.val_SI)
+        v_i = v_mix_ph(i, T0=self.inl[0].T.val_SI)
+        v_o = v_mix_ph(o, T0=self.outl[0].T.val_SI)
+
+        cross_sectional_area = self.H.val * self.W.val
+        perimeter = 2 * self.H.val + 2 * self.W.val
+        hydraulic_diameter = 4 * cross_sectional_area / perimeter
+
+        Re = abs(i[0]) * hydraulic_diameter / (cross_sectional_area * (visc_i + visc_o) / 2)
+
+        # hazen williams equation
+        if self.hydro_group.method == 'HW':
+            func = self.hazen_williams_func
+        # darcy friction factor
+        else:
+            func = self.darcy_func
+        if not increment_filter[0, 0]:
+            self.jacobian[k, 0, 0] = self.numeric_deriv(func, 'm', 0)
+            # self.jacobian[k, 0, 0] = (- abs(i[0]) * (v_i + v_o) / 2 *
+            #     self.L.val * dff(Re, self.ks.val, hydraulic_diameter) /
+            #     (hydraulic_diameter * cross_sectional_area**2)) +\
+            #       (- abs(i[0]) * i[0] * (v_i + v_o) / 2 *
+            #       self.L.val * derivative(self.ff, i[0], dx=abs(i[0]) * np.finfo(float).eps ** 0.5) /
+            #       (2 * hydraulic_diameter * cross_sectional_area ** 2))
+            #print(Re)
+            #print(derivative(self.ff, i[0], dx=abs(i[0]) * np.finfo(float).eps ** 0.5))
+            # print((- abs(i[0]) * (v_i + v_o) / 2 *
+            #     self.L.val * dff(Re, self.ks.val, hydraulic_diameter) /
+            #     (hydraulic_diameter * cross_sectional_area**2)) +\
+            #       (- abs(i[0]) * i[0] * (v_i + v_o) / 2 *
+            #       self.L.val * derivative(self.ff, i[0], dx=abs(i[0]) * np.finfo(float).eps ** 0.5) /
+            #       (2 * hydraulic_diameter * cross_sectional_area ** 2))
+            #       )
+            # print(self.numeric_deriv(func, 'm', 0))
+        if not increment_filter[0, 1]:
+            self.jacobian[k, 0, 1] = 1
+        if not increment_filter[0, 2]:
+            self.jacobian[k, 0, 2] = 0
+        if not increment_filter[1, 1]:
+            self.jacobian[k, 1, 1] = -1
+        if not increment_filter[1, 2]:
+            self.jacobian[k, 1, 2] = 0
+        # custom variables of hydro group
+        for var in self.hydro_group.elements:
+            var = self.get_attr(var)
+            if var.is_var:
+                self.jacobian[k, 2 + var.var_pos, 0] = (
+                    self.numeric_deriv(func, self.vars[var], 2))
+
+    def ff(self, mass_flow):
+        i, o = self.inl[0].get_flow(), self.outl[0].get_flow()
+
+        visc_i = visc_mix_ph(i, T0=self.inl[0].T.val_SI)
+        visc_o = visc_mix_ph(o, T0=self.outl[0].T.val_SI)
+
+        cross_sectional_area = self.H.val * self.W.val
+        perimeter = 2 * self.H.val + 2 * self.W.val
+        hydraulic_diameter = 4 * cross_sectional_area / perimeter
+        Re = abs(mass_flow) * hydraulic_diameter / (cross_sectional_area * (visc_i + visc_o) / 2)
+        return dff(Re, self.ks.val, hydraulic_diameter)
