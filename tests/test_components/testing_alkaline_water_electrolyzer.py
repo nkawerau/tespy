@@ -254,9 +254,25 @@ for i in range(1, number_of_cells + 1):
             )
         )
 
-        # adding subsystem with 1 connection (n2) to the network
-        fn.add_subsys(list_of_anode_subsystems[i - 1])
+        fn.add_conns(
+            Connection(
+                list_of_anode_subsystems[i - 1].comps[f"anode{i}" + "_splitter"],
+                "out1",
+                list_of_cathode_subsystems[i - 1].comps[f"cathode{i}" + "_ael_cell"],
+                "in2",
+                f"anode{i}" + "_n2",
+            )
+        )
 
+        fn.add_conns(
+            Connection(
+                list_of_cathode_subsystems[i - 1].comps[f"cathode{i}" + "_ael_cell"],
+                "out2",
+                list_of_anode_subsystems[i - 1].comps[f"anode{i}" + "_merge"],
+                "in1",
+                f"anode{i}" + "_n3",
+            )
+        )
 
         # defining connection between cell1 and sink_anode_stream
         fn.add_conns(
@@ -265,25 +281,33 @@ for i in range(1, number_of_cells + 1):
                 "out1",
                 list_of_anode_subsystems[i - 2].comps[f"anode{i - 1}" + "_merge"],
                 "in2",
-                f"anode{i}" + "_n3",
+                f"anode{i}" + "_n4",
             )
         )
 
 """Test component properties of alkaline water electrolyzer."""
-velocity = 1 # 0.05  # m/s
-d = 0.00522
-A_channel = d**2 * (np.pi/4)
-volume_flow = velocity * A_channel # m3/s
-rho = 1000  # kg/m3
-mass_flow = volume_flow * rho # kg/s
-p0 = 6.39
+mass_flow = 1e-2
+p0 = 2
 
 for half_cell in ["cathode1_n1", "anode1_n1"]:
     fn.get_conn(half_cell).set_attr(T=70, p=p0, m=mass_flow*number_of_cells,
                                     fluid={'H2': H2_mass_fraction, 'H2O': H2O_mass_fraction, 'KOH': KOH_mass_fraction, 'O2': 0})
 
+for k in range(1, number_of_cells + 1):
+    for connections in [f"cathode{k}_n2", f"cathode{k}_n3"]:
+        fn.get_conn(connections).set_attr(p0=p0, m0=mass_flow / number_of_cells)
 
-fn.set_attr(p_range=[p0 - 0.5, p0])#, h_range=[134.5, 135.5])
+    for connections in [f"cathode{k}_n1", f"cathode{k}_n4"]:
+        fn.get_conn(connections).set_attr(p0=p0,m0=mass_flow - (mass_flow * ((k - 1) / number_of_cells)))
+
+for l in range(1, number_of_cells + 1):
+    for connections in [f"anode{l}_n2", f"anode{l}_n2"]:
+        fn.get_conn(connections).set_attr(p0=p0, m0=mass_flow / number_of_cells)
+
+    for connections in [f"anode{l}_n1", f"anode{l}_n4"]:
+        fn.get_conn(connections).set_attr(p0=p0, m0=mass_flow - (mass_flow * ((l - 1) / number_of_cells)))
+
+#fn.set_attr(m_range=[1e-2, mass_flow], p_range=[p0, p0])#, h_range=[134.5, 135.5])
 #m_range=[1e-2, mass_flow],
 
 fn.solve('design')
