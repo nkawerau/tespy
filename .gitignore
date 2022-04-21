@@ -69,3 +69,6 @@ docs/_build
 
 # Mypy Cache
 .mypy_cache/
+
+# CoolProp
+CoolPropFluids6.4.1.json
