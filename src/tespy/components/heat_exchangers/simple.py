@@ -355,13 +355,13 @@ class HeatExchangerSimple(Component):
         if not increment_filter[0, 0]:
             self.jacobian[k, 0, 0] = self.numeric_deriv(func, 'm', 0)
         if not increment_filter[0, 1]:
-            self.jacobian[k, 0, 1] = self.numeric_deriv(func, 'p', 0)
+            self.jacobian[k, 0, 1] = 1
         if not increment_filter[0, 2]:
-            self.jacobian[k, 0, 2] = self.numeric_deriv(func, 'h', 0)
+            self.jacobian[k, 0, 2] = 0
         if not increment_filter[1, 1]:
-            self.jacobian[k, 1, 1] = self.numeric_deriv(func, 'p', 1)
+            self.jacobian[k, 1, 1] = -1
         if not increment_filter[1, 2]:
-            self.jacobian[k, 1, 2] = self.numeric_deriv(func, 'h', 1)
+            self.jacobian[k, 1, 2] = 0
         # custom variables of hydro group
         for var in self.hydro_group.elements:
             var = self.get_attr(var)
