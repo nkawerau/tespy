@@ -319,37 +319,40 @@ class TJunctionSplitter(NodeBase):
             Connection index of outlet.
         """
         data = self.get_attr(zeta)
+        i = self.inl[inconn].get_flow()
+        o = self.outl[outconn].get_flow()
+
+        v_i = v_mix_ph(i, T0=self.inl[inconn].T.val_SI)
+        v_o = v_mix_ph(o, T0=self.outl[outconn].T.val_SI)
         f = self.zeta_func
         outpos = self.num_i + outconn
-        if not increment_filter[inconn, 0]:
-            self.jacobian[k, inconn, 0] = self.numeric_deriv(
-                f, "m", inconn, zeta=zeta, inconn=inconn, outconn=outconn
-            )
+
         if not increment_filter[inconn, 1]:
-            self.jacobian[k, inconn, 1] = self.numeric_deriv(
-                f, "p", inconn, zeta=zeta, inconn=inconn, outconn=outconn
-            )
-        if not increment_filter[inconn, 2]:
-            self.jacobian[k, inconn, 2] = self.numeric_deriv(
-                f, "h", inconn, zeta=zeta, inconn=inconn, outconn=outconn
-            )
-        if not increment_filter[outpos, 0]:
-            self.jacobian[k, outpos, 0] = self.numeric_deriv(
-                f, "m", inconn, zeta=zeta, inconn=inconn, outconn=outconn
-            )
+            self.jacobian[k, inconn, 1] = 1
+
+        # if not increment_filter[inconn, 1]:
+        #     self.jacobian[k, inconn, 1] = self.numeric_deriv(
+        #         f, "p", inconn, zeta=zeta, inconn=inconn, outconn=outconn
+        #     )
+        # if not increment_filter[inconn, 2]:
+        #     self.jacobian[k, inconn, 2] = self.numeric_deriv(
+        #         f, "h", inconn, zeta=zeta, inconn=inconn, outconn=outconn
+        #     )
 
         if not increment_filter[outpos, 0]:
-            self.jacobian[k, outpos, 0] = self.numeric_deriv(
-                f, "m", outpos, zeta=zeta, inconn=inconn, outconn=outconn
-            )
+            self.jacobian[k, outpos, 0] = - data.val * abs(o[0]) * ((v_i + v_o) / 2)
         if not increment_filter[outpos, 1]:
-            self.jacobian[k, outpos, 1] = self.numeric_deriv(
-                f, "p", outpos, zeta=zeta, inconn=inconn, outconn=outconn
-            )
-        if not increment_filter[outpos, 2]:
-            self.jacobian[k, outpos, 2] = self.numeric_deriv(
-                f, "h", outpos, zeta=zeta, inconn=inconn, outconn=outconn
-            )
+            self.jacobian[k, outpos, 1] = -1
+
+        # if not increment_filter[outpos, 1]:
+        #     self.jacobian[k, outpos, 1] = self.numeric_deriv(
+        #         f, "p", outpos, zeta=zeta, inconn=inconn, outconn=outconn
+        #     )
+        # if not increment_filter[outpos, 2]:
+        #     self.jacobian[k, outpos, 2] = self.numeric_deriv(
+        #         f, "h", outpos, zeta=zeta, inconn=inconn, outconn=outconn
+        #     )
+
         # custom variable zeta
         if data.is_var:
             pos = self.num_i + self.num_o + data.var_pos
