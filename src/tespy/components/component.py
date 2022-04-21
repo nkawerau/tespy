@@ -1226,7 +1226,8 @@ class Component:
         elif dx in ['m', 'p', 'h']:
 
             if dx == 'm':
-                d = 1e-4
+                #d = 1e-4
+                d = self.inl[pos].m.val_SI * np.finfo(float).eps**0.5
             else:
                 d = 1e-1
             conns = self.inl + self.outl
