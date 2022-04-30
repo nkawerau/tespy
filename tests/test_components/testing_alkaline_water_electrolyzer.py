@@ -63,7 +63,8 @@ class Cell(Subsystem):
             )
 
         if 'cathode' in self.label:
-            self.comps[self.label + "_ael_cell"] = AlkalineWaterElectrolyzer(self.label + "_ael_cell", pr=1)
+            self.comps[self.label + "_ael_cell"] = AlkalineWaterElectrolyzer(self.label + "_ael_cell",
+                                                                             pr=1, cell_current=800, cell_voltage=1.8)
 
     def create_conns(self, label, last_cell):
         """Define the subsystem's connections."""

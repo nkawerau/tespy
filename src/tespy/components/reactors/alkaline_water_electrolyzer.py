@@ -31,6 +31,8 @@ class AlkalineWaterElectrolyzer(Component):
                 func_params={"pr": "pr"},
                 latex=self.pr_func_doc,
             ),
+            "cell_current": dc_cp(min_val=0, max_val=1e4),
+            "cell_voltage": dc_cp(min_val=0, max_val=3),
         }
 
     def get_mandatory_constraints(self):
@@ -661,7 +663,7 @@ class AlkalineWaterElectrolyzer(Component):
         volume_flow_cathode = 0.3  # 3.0229952 * (number_of_cells / 80)  # [m^3/hr]
         volume_flow_anode = 0.3  # 3.2755530 * (number_of_cells / 80)  # [m^3/hr]
 
-        stack_voltage = number_of_cells * 1.8  # [V]
+        stack_voltage = number_of_cells * self.cell_voltage.val  # [V]
         stack_current_density = 0.6  # [A/cm^2]
         active_cell_surface = 2710  # [cm^2]
         faraday_efficiency = 1  # 0.953
@@ -671,6 +673,8 @@ class AlkalineWaterElectrolyzer(Component):
             * number_of_cells
             * faraday_efficiency
         )  # [A]
+
+        stack_current = self.cell_current.val
 
         """electrochemistry"""
         # molar mass in [kg/mol]
