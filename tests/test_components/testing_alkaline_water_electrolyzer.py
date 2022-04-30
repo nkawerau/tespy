@@ -96,7 +96,7 @@ class Cell(Subsystem):
 number_of_cells = 1
 reference_number_of_cells = 95
 
-H2_mass_fraction = 0.01
+H2_mass_fraction = 0
 
 H2O_mass_fraction = 0.7 - H2_mass_fraction
 
