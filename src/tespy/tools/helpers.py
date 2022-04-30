@@ -807,7 +807,7 @@ def darcy_friction_factor(re, ks, d):
     >>> round(darcy_friction_factor(re_very_high, ks_low, d_very_high), 3)
     0.009
     """
-    if re <= 2320:
+    if re <= 1e3:  # 2320:
         return 64 / re
     else:
         if re * ks / d < 65:
