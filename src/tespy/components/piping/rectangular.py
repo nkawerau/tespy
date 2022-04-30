@@ -13,9 +13,10 @@ SPDX-License-Identifier: MIT
 
 
 import logging
+from collections import OrderedDict
 
-from scipy.misc import derivative
 import numpy as np
+from scipy.misc import derivative
 
 from tespy.components.heat_exchangers.simple import HeatExchangerSimple
 from tespy.tools.data_containers import ComponentCharacteristics as dc_cc
@@ -170,6 +171,42 @@ class RectangularPipe(HeatExchangerSimple):
     >>> shutil.rmtree('./tmp', ignore_errors=True)
     """
 
+    def __init__(self, label, **kwargs):
+
+        # check if components label is of type str and for prohibited chars
+        if not isinstance(label, str):
+            msg = 'Component label must be of type str!'
+            logging.error(msg)
+            raise ValueError(msg)
+
+        elif len([x for x in [';', ',', '.'] if x in label]) > 0:
+            msg = (
+                'You must not use ' + str([';', ',', '.']) + ' in label (' +
+                str(self.component()) + ').')
+            logging.error(msg)
+            raise ValueError(msg)
+
+        else:
+            self.label = label
+
+        # defaults
+        self.new_design = True
+        self.design_path = None
+        self.design = []
+        self.offdesign = []
+        self.local_design = False
+        self.local_offdesign = False
+        self.char_warnings = True
+        self.printout = True
+
+        # add container for components attributes
+        self.variables = OrderedDict(self.get_variables().copy())
+        self.__dict__.update(self.variables)
+        self.set_attr(**kwargs)
+
+        self.A.val = self.H.val * self.W.val
+        self.D_h.val = 4 * self.A.val / (2 * self.H.val + 2 * self.W.val)
+
     @staticmethod
     def component():
         return 'rectangular pipe'
@@ -191,6 +228,9 @@ class RectangularPipe(HeatExchangerSimple):
                 func_params={'zeta': 'zeta'}),
             'H': dc_cp(min_val=1e-3, max_val=2, d=1e-4),
             'W': dc_cp(min_val=1e-3, max_val=2, d=1e-4),
+            'A': dc_cp(is_set=True),
+            'D_h': dc_cp(is_set=True),
+            'Re': dc_cp(is_set=True),
             'L': dc_cp(min_val=1e-2, d=1e-3),
             'ks': dc_cp(val=1e-4, min_val=1e-7, max_val=1e-3, d=1e-8),
             'kA': dc_cp(min_val=0, d=1),
@@ -233,23 +273,16 @@ class RectangularPipe(HeatExchangerSimple):
         """
         i, o = self.inl[0].get_flow(), self.outl[0].get_flow()
 
-        if abs(i[0]) < 1e-4:
-            return i[1] - o[1]
-
         visc_i = visc_mix_ph(i, T0=self.inl[0].T.val_SI)
         visc_o = visc_mix_ph(o, T0=self.outl[0].T.val_SI)
         v_i = v_mix_ph(i, T0=self.inl[0].T.val_SI)
         v_o = v_mix_ph(o, T0=self.outl[0].T.val_SI)
 
-        cross_sectional_area = self.H.val * self.W.val
-        perimeter = 2 * self.H.val + 2 * self.W.val
-        hydraulic_diameter = 4 * cross_sectional_area / perimeter
-
-        Re = abs(i[0]) * hydraulic_diameter / (cross_sectional_area * (visc_i + visc_o) / 2)
+        self.Re.val = abs(i[0]) * self.D_h.val / (self.A.val * (visc_i + visc_o) / 2)
 
         return ((i[1] - o[1]) - abs(i[0]) * i[0] * (v_i + v_o) / 2 *
-                self.L.val * dff(Re, self.ks.val, hydraulic_diameter) /
-                (2 * hydraulic_diameter * cross_sectional_area**2))
+                self.L.val * dff(self.Re.val, self.ks.val, self.D_h.val) /
+                (2 * self.D_h.val * self.A.val**2))
 
     def darcy_func_doc(self, label):
         r"""
@@ -310,13 +343,9 @@ class RectangularPipe(HeatExchangerSimple):
         v_i = v_mix_ph(i, T0=self.inl[0].T.val_SI)
         v_o = v_mix_ph(o, T0=self.outl[0].T.val_SI)
 
-        cross_sectional_area = self.H * self.W
-        perimeter = 2 * self.H + 2 * self.W
-        hydraulic_diameter = 4 * cross_sectional_area / perimeter
-
         return ((i[1] - o[1]) * np.sign(i[0]) -
                 (10.67 * abs(i[0]) ** 1.852 * self.L.val /
-                 (self.ks.val ** 1.852 * hydraulic_diameter ** 4.871)) *
+                 (self.ks.val ** 1.852 * self.D_h.val ** 4.871)) *
                 (9.81 * ((v_i + v_o) / 2) ** 0.852))
 
     def hazen_williams_func_doc(self, label):
@@ -354,18 +383,10 @@ class RectangularPipe(HeatExchangerSimple):
             Position of derivatives in Jacobian matrix (k-th equation).
         """
 
-        i, o = self.inl[0].get_flow(), self.outl[0].get_flow()
+        #i, o = self.inl[0].get_flow(), self.outl[0].get_flow()
 
-        visc_i = visc_mix_ph(i, T0=self.inl[0].T.val_SI)
-        visc_o = visc_mix_ph(o, T0=self.outl[0].T.val_SI)
-        v_i = v_mix_ph(i, T0=self.inl[0].T.val_SI)
-        v_o = v_mix_ph(o, T0=self.outl[0].T.val_SI)
-
-        cross_sectional_area = self.H.val * self.W.val
-        perimeter = 2 * self.H.val + 2 * self.W.val
-        hydraulic_diameter = 4 * cross_sectional_area / perimeter
-
-        Re = abs(i[0]) * hydraulic_diameter / (cross_sectional_area * (visc_i + visc_o) / 2)
+        #v_i = v_mix_ph(i, T0=self.inl[0].T.val_SI)
+        #v_o = v_mix_ph(o, T0=self.outl[0].T.val_SI)
 
         # hazen williams equation
         if self.hydro_group.method == 'HW':
@@ -375,22 +396,32 @@ class RectangularPipe(HeatExchangerSimple):
             func = self.darcy_func
         if not increment_filter[0, 0]:
             self.jacobian[k, 0, 0] = self.numeric_deriv(func, 'm', 0)
-            # self.jacobian[k, 0, 0] = (- abs(i[0]) * (v_i + v_o) / 2 *
-            #     self.L.val * dff(Re, self.ks.val, hydraulic_diameter) /
-            #     (hydraulic_diameter * cross_sectional_area**2)) +\
-            #       (- abs(i[0]) * i[0] * (v_i + v_o) / 2 *
-            #       self.L.val * derivative(self.ff, i[0], dx=abs(i[0]) * np.finfo(float).eps ** 0.5) /
-            #       (2 * hydraulic_diameter * cross_sectional_area ** 2))
-            #print(Re)
-            #print(derivative(self.ff, i[0], dx=abs(i[0]) * np.finfo(float).eps ** 0.5))
-            # print((- abs(i[0]) * (v_i + v_o) / 2 *
-            #     self.L.val * dff(Re, self.ks.val, hydraulic_diameter) /
-            #     (hydraulic_diameter * cross_sectional_area**2)) +\
-            #       (- abs(i[0]) * i[0] * (v_i + v_o) / 2 *
-            #       self.L.val * derivative(self.ff, i[0], dx=abs(i[0]) * np.finfo(float).eps ** 0.5) /
-            #       (2 * hydraulic_diameter * cross_sectional_area ** 2))
+            #self.jacobian[k, 0, 0] = -71293.45780733274
+            # self.jacobian[k, 0, 0] = (- abs(i[0]) * (v_i + v_o) / 2 * self.L.val * dff(self.Re.val, self.ks.val, self.D_h.val) /
+            #       (self.D_h.val * self.A.val**2)) + (- abs(i[0]) * i[0] * (v_i + v_o) / 2 * self.L.val *
+            #          derivative(self.ff, i[0], dx=abs(i[0]) * np.finfo(float).eps ** 0.5) /
+            #          (2 * self.D_h.val * self.A.val ** 2))
+            # self.jacobian[k, 0, 0] = ((- abs(i[0]) * v_i * self.L.val * dff(self.Re.val, self.ks.val, self.D_h.val) /
+            #       (self.D_h.val * self.A.val**2))
+            #       + (- abs(i[0]) * i[0] * v_i * self.L.val *
+            #          (-64 * self.A.val * v_i / (self.D_h.val * abs(i[0]) * i[0])) /
+            #          (2 * self.D_h.val * self.A.val ** 2))
             #       )
-            # print(self.numeric_deriv(func, 'm', 0))
+            #print("Re: ", self.Re.val)
+            #print(derivative(self.ff, i[0], dx=abs(i[0]) * np.finfo(float).eps ** 0.5))
+            #print(self.numeric_deriv(func, 'm', 0))
+            # print((- abs(i[0]) * (v_i + v_o) / 2 * self.L.val * dff(self.Re.val, self.ks.val, self.D_h.val) /
+            #       (self.D_h.val * self.A.val**2))
+            #       + (- abs(i[0]) * i[0] * (v_i + v_o) / 2 * self.L.val *
+            #          derivative(self.ff, i[0], dx=abs(i[0]) * np.finfo(float).eps ** 0.5) /
+            #          (2 * self.D_h.val * self.A.val ** 2))
+            #       )
+            # print((- abs(i[0]) * (v_i + v_o) / 2 * self.L.val * dff(self.Re.val, self.ks.val, self.D_h.val) /
+            #       (self.D_h.val * self.A.val**2))
+            #       + (- abs(i[0]) * i[0] * (v_i + v_o) / 2 * self.L.val *
+            #          (-64 * self.A.val * (v_i + v_o) / 2 / (self.D_h.val * abs(i[0]) * i[0])) /
+            #          (2 * self.D_h.val * self.A.val ** 2))
+            #       )
         if not increment_filter[0, 1]:
             self.jacobian[k, 0, 1] = 1
         if not increment_filter[0, 2]:
@@ -412,8 +443,5 @@ class RectangularPipe(HeatExchangerSimple):
         visc_i = visc_mix_ph(i, T0=self.inl[0].T.val_SI)
         visc_o = visc_mix_ph(o, T0=self.outl[0].T.val_SI)
 
-        cross_sectional_area = self.H.val * self.W.val
-        perimeter = 2 * self.H.val + 2 * self.W.val
-        hydraulic_diameter = 4 * cross_sectional_area / perimeter
-        Re = abs(mass_flow) * hydraulic_diameter / (cross_sectional_area * (visc_i + visc_o) / 2)
-        return dff(Re, self.ks.val, hydraulic_diameter)
+        Re = abs(mass_flow) * self.D_h.val / (self.A.val * (visc_i + visc_o) / 2)
+        return dff(Re, self.ks.val, self.D_h.val)
