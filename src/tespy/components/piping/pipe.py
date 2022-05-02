@@ -268,7 +268,6 @@ class Pipe(HeatExchangerSimple):
         v_o = v_mix_ph(o, T0=self.outl[0].T.val_SI)
 
         self.Re.val = abs(i[0]) * self.D_h.val / (self.A.val * (visc_i + visc_o) / 2)
-        print(self.Re.val)
 
         return ((i[1] - o[1]) - abs(i[0]) * i[0] * (v_i + v_o) / 2 *
                 self.L.val * dff(self.Re.val, self.ks.val, self.D_h.val) /
