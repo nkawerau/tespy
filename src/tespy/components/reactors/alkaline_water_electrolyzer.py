@@ -651,29 +651,29 @@ class AlkalineWaterElectrolyzer(Component):
     def alkaline_electrolysis(self):
         """constants"""
         faraday_constant = e * Avogadro  # [C/mol]
-        universal_gas_constant = R  # [J/(mol*K)]
-        standard_pressure = 101325  # [Pa]
-        standard_temperature = 273.15  # [K]
+        # universal_gas_constant = R  # [J/(mol*K)]
+        # standard_pressure = 101325  # [Pa]
+        # standard_temperature = 273.15  # [K]
 
         """initial system state"""
         number_of_cells = 1
-        temperature = 65  # [degC]
-        pressure = 16  # [bar]
-        mass_concentration_KOH = 0.3
-        volume_flow_cathode = 0.3  # 3.0229952 * (number_of_cells / 80)  # [m^3/hr]
-        volume_flow_anode = 0.3  # 3.2755530 * (number_of_cells / 80)  # [m^3/hr]
+        # temperature = 65  # [degC]
+        # pressure = 16  # [bar]
+        # mass_concentration_KOH = 0.3
+        # volume_flow_cathode = 0.3  # 3.0229952 * (number_of_cells / 80)  # [m^3/hr]
+        # volume_flow_anode = 0.3  # 3.2755530 * (number_of_cells / 80)  # [m^3/hr]
 
 
         stack_voltage = number_of_cells * self.cell_voltage.val  # [V]
-        stack_current_density = 0.6  # [A/cm^2]
-        active_cell_surface = 2710  # [cm^2]
+        # stack_current_density = 0.6  # [A/cm^2]
+        # active_cell_surface = 2710  # [cm^2]
         faraday_efficiency = 1  # 0.953
-        stack_current = (
-            stack_current_density
-            * active_cell_surface
-            * number_of_cells
-            * faraday_efficiency
-        )  # [A]
+        # stack_current = (
+        #     stack_current_density
+        #     * active_cell_surface
+        #     * number_of_cells
+        #     * faraday_efficiency
+        # )  # [A]
 
         stack_current = self.cell_current.val
 
@@ -697,7 +697,7 @@ class AlkalineWaterElectrolyzer(Component):
 
         # valency of an atom is the measure of its combining capacity with other atoms
         valency_H = 1
-        valency_O = 2
+        # valency_O = 2
 
         # stoichiometric reaction equation
         # cathode:   4*H2O +4e- --> 2*H2 + 4*OH-
