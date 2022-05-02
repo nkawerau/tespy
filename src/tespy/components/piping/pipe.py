@@ -221,7 +221,7 @@ class Pipe(HeatExchangerSimple):
                 latex=self.zeta_func_doc,
                 func_params={'zeta': 'zeta'}),
             'D': dc_cp(min_val=1e-3, max_val=2, d=1e-4),
-            'L': dc_cp(min_val=1e-1, d=1e-3),
+            'L': dc_cp(min_val=1e-2, d=1e-3),
             'A': dc_cp(min_val=0, is_set=True),
             'D_h': dc_cp(min_val=1e-3, max_val=2, d=1e-4, is_set=True),
             'Re': dc_cp(min_val=0, is_set=True),
