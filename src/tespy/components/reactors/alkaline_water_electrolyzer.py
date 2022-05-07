@@ -31,6 +31,7 @@ class AlkalineWaterElectrolyzer(Component):
                 latex=self.pr_func_doc),
             "cell_current": dc_cp(min_val=0, max_val=1e4),
             "cell_voltage": dc_cp(min_val=0, max_val=3),
+            "cell_surface": dc_cp(min_val=0, max_val=1e5),
         }
 
     def get_mandatory_constraints(self):
@@ -47,7 +48,7 @@ class AlkalineWaterElectrolyzer(Component):
                 "deriv": self.fluid_deriv_simple,
                 "constant_deriv": True,
                 "latex": self.fluid_func_doc,
-                "num_eq": 2*self.num_nw_fluids,
+                "num_eq": 2 * self.num_nw_fluids,
             },
             "enthalpy_equality_constraints": {
                 "func": self.enthalpy_equality_func,
@@ -77,17 +78,19 @@ class AlkalineWaterElectrolyzer(Component):
 
                 0 = h_{in,i} - h_{out,i} \;\forall i\in\text{inlets}
         """
-        #flow = self.outl[0].get_flow()
-        #T = fp.T_mix_ph(flow, T0=273.15 + 25)
+        # flow = self.outl[0].get_flow()
+        # T = fp.T_mix_ph(flow, T0=273.15 + 25)
 
         fluid_mass = self.alkaline_electrolysis()
         residual = []
 
         # equation 1
-        residual += [self.inl[0].h.val_SI - self.outl[0].h.val_SI + (fluid_mass['energy_losses']/2)/self.outl[0].m.val_SI]
+        residual += [
+            self.inl[0].h.val_SI - self.outl[0].h.val_SI + (fluid_mass['energy_losses'] / 2) / self.outl[0].m.val_SI]
         # equation 2
-        residual += [self.inl[1].h.val_SI - self.outl[1].h.val_SI + (fluid_mass['energy_losses']/2)/self.outl[1].m.val_SI]
-        #residual += [fp.h_mix_pT(flow, T) - self.outl[1].h.val_SI]
+        residual += [
+            self.inl[1].h.val_SI - self.outl[1].h.val_SI + (fluid_mass['energy_losses'] / 2) / self.outl[1].m.val_SI]
+        # residual += [fp.h_mix_pT(flow, T) - self.outl[1].h.val_SI]
 
         return residual
 
@@ -163,30 +166,39 @@ class AlkalineWaterElectrolyzer(Component):
         residual = []
 
         # equation 1
-        residual += [self.inl[0].fluid.val['H2'] + (fluid_mass["synthesized_H2_mass_cathode"]
-                      / self.outl[0].m.val_SI) - self.outl[0].fluid.val['H2']]
+        residual += [self.inl[0].fluid.val['H2']
+                     + fluid_mass["synthesized_H2_mass_cathode"] / self.outl[0].m.val_SI
+                     - self.hydrogen_leakage() / self.outl[0].m.val_SI
+                     - self.outl[0].fluid.val['H2']]
         # equation 2
-        residual += [self.inl[1].fluid.val['H2'] - self.outl[1].fluid.val['H2']]
+        residual += [self.inl[1].fluid.val['H2']
+                     + self.hydrogen_leakage() / self.outl[1].m.val_SI
+                     - self.outl[1].fluid.val['H2']]
 
         # equation 3
-        residual += [((self.inl[0].fluid.val['H2O'] * self.inl[0].m.val_SI - fluid_mass["electrolyzed_H2O_mass_cathode"])
-                       / self.outl[0].m.val_SI) - self.outl[0].fluid.val['H2O']]
+        residual += [
+            ((self.inl[0].fluid.val['H2O'] * self.inl[0].m.val_SI - fluid_mass["electrolyzed_H2O_mass_cathode"])
+             / self.outl[0].m.val_SI) - self.outl[0].fluid.val['H2O']]
         # equation 4
         residual += [((self.inl[1].fluid.val['H2O'] * self.inl[1].m.val_SI + fluid_mass["synthesized_H2O_mass_anode"])
                       / self.outl[1].m.val_SI) - self.outl[1].fluid.val['H2O']]
 
         # equation 5
         residual += [((self.inl[0].fluid.val['KOH'] * self.inl[0].m.val_SI)
-                     / self.outl[0].m.val_SI) - self.outl[0].fluid.val['KOH']]
+                      / self.outl[0].m.val_SI) - self.outl[0].fluid.val['KOH']]
         # equation 6
         residual += [((self.inl[1].fluid.val['KOH'] * self.inl[1].m.val_SI)
-                     / self.outl[1].m.val_SI) - self.outl[1].fluid.val['KOH']]
+                      / self.outl[1].m.val_SI) - self.outl[1].fluid.val['KOH']]
 
         # equation 7
-        residual += [self.inl[0].fluid.val['O2'] - self.outl[0].fluid.val['O2']]
+        residual += [self.inl[0].fluid.val['O2']
+                     + self.oxygen_leakage() / self.outl[0].m.val_SI
+                     - self.outl[0].fluid.val['O2']]
         # equation 8
-        residual += [self.inl[1].fluid.val['O2'] + (fluid_mass["synthesized_O2_mass_anode"]
-                      / self.outl[1].m.val_SI) - self.outl[1].fluid.val['O2']]
+        residual += [self.inl[1].fluid.val['O2']
+                     + fluid_mass["synthesized_O2_mass_anode"] / self.outl[1].m.val_SI
+                     - self.oxygen_leakage() / self.outl[1].m.val_SI
+                     - self.outl[1].fluid.val['O2']]
 
         return residual
 
@@ -247,9 +259,9 @@ class AlkalineWaterElectrolyzer(Component):
         # if not increment_filter[3, 0]:
         #     self.jacobian[k+1, 3, 0] = 0
         if not increment_filter[1, 3]:
-            self.jacobian[k+1, 1, 3] = 1
+            self.jacobian[k + 1, 1, 3] = 1
         if not increment_filter[3, 3]:
-            self.jacobian[k+1, 3, 3] = -1
+            self.jacobian[k + 1, 3, 3] = -1
 
         # equation 3
         # if not increment_filter[0, 0]:
@@ -257,18 +269,18 @@ class AlkalineWaterElectrolyzer(Component):
         # if not increment_filter[2, 0]:
         #     self.jacobian[k+2, 2, 0] = - self.inl[0].fluid.val['H2O'] * self.inl[0].m.val_SI / self.outl[0].m.val_SI**2
         if not increment_filter[0, 4]:
-            self.jacobian[k+2, 0, 4] = self.inl[0].m.val_SI/self.outl[0].m.val_SI
+            self.jacobian[k + 2, 0, 4] = self.inl[0].m.val_SI / self.outl[0].m.val_SI
         if not increment_filter[2, 4]:
-            self.jacobian[k+2, 2, 4] = -1
+            self.jacobian[k + 2, 2, 4] = -1
         # equation 4
         # if not increment_filter[1, 0]:
         #     self.jacobian[k+3, 1, 0] = self.inl[1].fluid.val['H2O']
         # if not increment_filter[3, 0]:
         #     self.jacobian[k+3, 3, 0] = - self.inl[1].fluid.val['H2O'] * self.inl[1].m.val_SI / self.outl[1].m.val_SI**2
         if not increment_filter[1, 4]:
-            self.jacobian[k+3, 1, 4] = self.inl[1].m.val_SI/self.outl[1].m.val_SI
+            self.jacobian[k + 3, 1, 4] = self.inl[1].m.val_SI / self.outl[1].m.val_SI
         if not increment_filter[3, 4]:
-            self.jacobian[k+3, 3, 4] = -1
+            self.jacobian[k + 3, 3, 4] = -1
 
         # equation 5
         # if not increment_filter[0, 0]:
@@ -276,18 +288,18 @@ class AlkalineWaterElectrolyzer(Component):
         # if not increment_filter[2, 0]:
         #     self.jacobian[k+4, 2, 0] = - self.inl[0].fluid.val['KOH'] * self.inl[0].m.val_SI / self.outl[0].m.val_SI**2
         if not increment_filter[0, 5]:
-            self.jacobian[k+4, 0, 5] = self.inl[0].m.val_SI/self.outl[0].m.val_SI
+            self.jacobian[k + 4, 0, 5] = self.inl[0].m.val_SI / self.outl[0].m.val_SI
         if not increment_filter[2, 5]:
-            self.jacobian[k+4, 2, 5] = -1
+            self.jacobian[k + 4, 2, 5] = -1
         # equation 6
         # if not increment_filter[1, 0]:
         #     self.jacobian[k+5, 1, 0] = self.inl[1].fluid.val['KOH']
         # if not increment_filter[3, 0]:
         #     self.jacobian[k+5, 3, 0] = - self.inl[1].fluid.val['KOH'] * self.inl[1].m.val_SI / self.outl[1].m.val_SI**2
         if not increment_filter[1, 5]:
-            self.jacobian[k+5, 1, 5] = self.inl[1].m.val_SI/self.outl[1].m.val_SI
+            self.jacobian[k + 5, 1, 5] = self.inl[1].m.val_SI / self.outl[1].m.val_SI
         if not increment_filter[3, 5]:
-            self.jacobian[k+5, 3, 5] = -1
+            self.jacobian[k + 5, 3, 5] = -1
 
         # equation 7
         # if not increment_filter[0, 0]:
@@ -295,18 +307,18 @@ class AlkalineWaterElectrolyzer(Component):
         # if not increment_filter[2, 0]:
         #     self.jacobian[k+6, 2, 0] = 0
         if not increment_filter[0, 6]:
-            self.jacobian[k+6, 0, 6] = 1
+            self.jacobian[k + 6, 0, 6] = 1
         if not increment_filter[2, 6]:
-            self.jacobian[k+6, 2, 6] = -1
+            self.jacobian[k + 6, 2, 6] = -1
         # equation 8
         # if not increment_filter[1, 0]:
         #     self.jacobian[k+7, 1, 0] = 0
         # if not increment_filter[3, 0]:
         #     self.jacobian[k+7, 3, 0] = - fluid_mass["synthesized_O2_mass_anode"] / self.outl[1].m.val_SI**2
         if not increment_filter[1, 6]:
-            self.jacobian[k+7, 1, 6] = 1
+            self.jacobian[k + 7, 1, 6] = 1
         if not increment_filter[3, 6]:
-            self.jacobian[k+7, 3, 6] = -1
+            self.jacobian[k + 7, 3, 6] = -1
 
     def fluid_deriv_numeric(self, increment_filter, k):
         r"""
@@ -333,70 +345,70 @@ class AlkalineWaterElectrolyzer(Component):
             self.jacobian[k, 2, 3] = self.numeric_deriv(func, 'H2', 2)
         # equation 2
         if not increment_filter[1, 0]:
-            self.jacobian[k+1, 1, 0] = 0
+            self.jacobian[k + 1, 1, 0] = 0
         if not increment_filter[3, 0]:
-            self.jacobian[k+1, 3, 0] = 0
+            self.jacobian[k + 1, 3, 0] = 0
         if not increment_filter[1, 3]:
-            self.jacobian[k+1, 1, 3] = self.numeric_deriv(func, 'H2', 1)
+            self.jacobian[k + 1, 1, 3] = self.numeric_deriv(func, 'H2', 1)
         if not increment_filter[3, 3]:
-            self.jacobian[k+1, 3, 3] = self.numeric_deriv(func, 'H2', 3)
+            self.jacobian[k + 1, 3, 3] = self.numeric_deriv(func, 'H2', 3)
 
         # equation 3
         if not increment_filter[0, 0]:
-            self.jacobian[k+2, 0, 0] = self.numeric_deriv(func, 'm', 0)
+            self.jacobian[k + 2, 0, 0] = self.numeric_deriv(func, 'm', 0)
         if not increment_filter[2, 0]:
-            self.jacobian[k+2, 2, 0] = self.numeric_deriv(func, 'm', 2)
+            self.jacobian[k + 2, 2, 0] = self.numeric_deriv(func, 'm', 2)
         if not increment_filter[0, 4]:
-            self.jacobian[k+2, 0, 4] = self.numeric_deriv(func, 'H2O', 0)
+            self.jacobian[k + 2, 0, 4] = self.numeric_deriv(func, 'H2O', 0)
         if not increment_filter[2, 4]:
-            self.jacobian[k+2, 2, 4] = self.numeric_deriv(func, 'H2O', 2)
+            self.jacobian[k + 2, 2, 4] = self.numeric_deriv(func, 'H2O', 2)
         # equation 4
         if not increment_filter[1, 0]:
-            self.jacobian[k+3, 1, 0] = self.numeric_deriv(func, 'm', 1)
+            self.jacobian[k + 3, 1, 0] = self.numeric_deriv(func, 'm', 1)
         if not increment_filter[3, 0]:
-            self.jacobian[k+3, 3, 0] = self.numeric_deriv(func, 'm', 3)
+            self.jacobian[k + 3, 3, 0] = self.numeric_deriv(func, 'm', 3)
         if not increment_filter[1, 4]:
-            self.jacobian[k+3, 1, 4] = self.numeric_deriv(func, 'H2O', 1)
+            self.jacobian[k + 3, 1, 4] = self.numeric_deriv(func, 'H2O', 1)
         if not increment_filter[3, 4]:
-            self.jacobian[k+3, 3, 4] = self.numeric_deriv(func, 'H2O', 3)
+            self.jacobian[k + 3, 3, 4] = self.numeric_deriv(func, 'H2O', 3)
 
         # equation 5
         if not increment_filter[0, 0]:
-            self.jacobian[k+4, 0, 0] = self.numeric_deriv(func, 'm', 0)
+            self.jacobian[k + 4, 0, 0] = self.numeric_deriv(func, 'm', 0)
         if not increment_filter[2, 0]:
-            self.jacobian[k+4, 2, 0] = self.numeric_deriv(func, 'm', 2)
+            self.jacobian[k + 4, 2, 0] = self.numeric_deriv(func, 'm', 2)
         if not increment_filter[0, 5]:
-            self.jacobian[k+4, 0, 5] = self.numeric_deriv(func, 'KOH', 0)
+            self.jacobian[k + 4, 0, 5] = self.numeric_deriv(func, 'KOH', 0)
         if not increment_filter[2, 5]:
-            self.jacobian[k+4, 2, 5] = self.numeric_deriv(func, 'KOH', 2)
+            self.jacobian[k + 4, 2, 5] = self.numeric_deriv(func, 'KOH', 2)
         # equation 6
         if not increment_filter[1, 0]:
-            self.jacobian[k+5, 1, 0] = self.numeric_deriv(func, 'm', 1)
+            self.jacobian[k + 5, 1, 0] = self.numeric_deriv(func, 'm', 1)
         if not increment_filter[3, 0]:
-            self.jacobian[k+5, 3, 0] = self.numeric_deriv(func, 'm', 3)
+            self.jacobian[k + 5, 3, 0] = self.numeric_deriv(func, 'm', 3)
         if not increment_filter[1, 5]:
-            self.jacobian[k+5, 1, 5] = self.numeric_deriv(func, 'KOH', 1)
+            self.jacobian[k + 5, 1, 5] = self.numeric_deriv(func, 'KOH', 1)
         if not increment_filter[3, 5]:
-            self.jacobian[k+5, 3, 5] = -self.numeric_deriv(func, 'KOH', 3)
+            self.jacobian[k + 5, 3, 5] = -self.numeric_deriv(func, 'KOH', 3)
 
         # equation 7
         if not increment_filter[0, 0]:
-            self.jacobian[k+6, 0, 0] = 0
+            self.jacobian[k + 6, 0, 0] = 0
         if not increment_filter[2, 0]:
-            self.jacobian[k+6, 2, 0] = 0
+            self.jacobian[k + 6, 2, 0] = 0
         if not increment_filter[0, 6]:
-            self.jacobian[k+6, 0, 6] = self.numeric_deriv(func, 'O2', 0)
+            self.jacobian[k + 6, 0, 6] = self.numeric_deriv(func, 'O2', 0)
         if not increment_filter[2, 6]:
-            self.jacobian[k+6, 2, 6] = self.numeric_deriv(func, 'O2', 2)
+            self.jacobian[k + 6, 2, 6] = self.numeric_deriv(func, 'O2', 2)
         # equation 8
         if not increment_filter[1, 0]:
-            self.jacobian[k+7, 1, 0] = 0
+            self.jacobian[k + 7, 1, 0] = 0
         if not increment_filter[3, 0]:
-            self.jacobian[k+7, 3, 0] = self.numeric_deriv(func, 'm', 3)
+            self.jacobian[k + 7, 3, 0] = self.numeric_deriv(func, 'm', 3)
         if not increment_filter[1, 6]:
-            self.jacobian[k+7, 1, 6] = self.numeric_deriv(func, 'O2', 3)
+            self.jacobian[k + 7, 1, 6] = self.numeric_deriv(func, 'O2', 3)
         if not increment_filter[3, 6]:
-            self.jacobian[k+7, 3, 6] = self.numeric_deriv(func, 'O2', 3)
+            self.jacobian[k + 7, 3, 6] = self.numeric_deriv(func, 'O2', 3)
 
     def fluid_deriv_simple(self):
         r"""
@@ -463,7 +475,8 @@ class AlkalineWaterElectrolyzer(Component):
         residual = []
 
         # equation 1
-        residual += [self.inl[0].m.val_SI - self.outl[0].m.val_SI - fluid_mass['transferred_OH_mass']]
+        residual += [self.inl[0].m.val_SI - self.outl[0].m.val_SI - fluid_mass['transferred_OH_mass'] \
+                    - self.hydrogen_leakage() + self.oxygen_leakage()]
 
         # equation 2
         # residual += [fluid_mass['transferred_OH_mass'] - self.outl[1].m.val_SI]
@@ -614,9 +627,8 @@ class AlkalineWaterElectrolyzer(Component):
         self.jacobian[k, 2, 1] = -1
 
         # equation 2
-        self.jacobian[k+1, 1, 1] = pr.val
-        self.jacobian[k+1, 3, 1] = -1
-
+        self.jacobian[k + 1, 1, 1] = pr.val
+        self.jacobian[k + 1, 3, 1] = -1
 
         if pr.is_var:
             pos = self.num_i + self.num_o + pr.var_pos
@@ -643,7 +655,7 @@ class AlkalineWaterElectrolyzer(Component):
 
         for fluid, x in outconn.fluid.val.items():
             if (inconn.fluid.val_set[fluid] is False and
-                    inconn.good_starting_values is False):
+                inconn.good_starting_values is False):
                 inconn.fluid.val[fluid] = x
 
         inconn.source.propagate_fluid_to_source(inconn, start)
@@ -728,7 +740,7 @@ class AlkalineWaterElectrolyzer(Component):
         enthalpy_of_reaction = 285.900  # [kJ/mol]
         electrolysis_energy = enthalpy_of_reaction * synthesized_H2_mol_cathode  # [kJ]
 
-        energy_losses = (effective_energy_input - electrolysis_energy)*1000 #[J]
+        energy_losses = (effective_energy_input - electrolysis_energy) * 1000  # [J]
 
         return {
             "synthesized_H2_mol_cathode": synthesized_H2_mol_cathode,
@@ -740,3 +752,67 @@ class AlkalineWaterElectrolyzer(Component):
             "energy_losses": energy_losses,
 
         }
+
+    def hydrogen_leakage(self):
+        pressure = self.outl[1].p.val_SI
+        temperature = fp.T_mix_ph(self.outl[1].get_flow())
+        fluid_mass = self.alkaline_electrolysis()
+        # current_density in mA/cm2
+        current_density = (self.cell_current.val * 1e3) / self.cell_surface.val
+
+        # parameters for impurity correlation of hydrogen in oxygen
+        parameters_hydrogen_leakage = [3.205399400912378738e-01,
+                                       1.277809921299455365e-01,
+                                       -6.014015031206550524e-04,
+                                       -1.264462809917345698e-03,
+                                       -1.111363646223849529e-04]
+
+        volume_fraction_hydrogen = self.impurity_correlation(parameters_hydrogen_leakage,
+                                                             pressure / 1e5,
+                                                             current_density)
+
+        volume_flow_O2 = fluid_mass["synthesized_O2_mass_anode"] / fp.d_pT(pressure, temperature, 'O2')
+
+        leakage_H2_mass = volume_fraction_hydrogen * volume_flow_O2 * fp.d_pT(pressure, temperature, 'H2')
+
+        return leakage_H2_mass
+
+    def oxygen_leakage(self):
+        pressure = self.outl[0].p.val_SI
+        temperature = fp.T_mix_ph(self.outl[0].get_flow())
+        fluid_mass = self.alkaline_electrolysis()
+        # current_density in mA/cm2
+        current_density = (self.cell_current.val * 1e3) / self.cell_surface.val
+
+        # parameters for impurity correlation of hydrogen in oxygen
+        parameters_oxygen_leakage = [-3.396278084038133888e-02,
+                                     2.696693981316736904e-02,
+                                     -6.818908744916805177e-07,
+                                     -2.148760330586163309e-04,
+                                     -2.636363052460240016e-05]
+
+        volume_fraction_oxygen = self.impurity_correlation(parameters_oxygen_leakage,
+                                                             pressure / 1e5,
+                                                             current_density)
+
+        volume_flow_H2 = fluid_mass["synthesized_H2_mass_cathode"] / fp.d_pT(pressure, temperature, 'H2')
+
+        leakage_O2_mass = volume_fraction_oxygen * volume_flow_H2 * fp.d_pT(pressure, temperature, 'O2')
+
+        return leakage_O2_mass
+
+    def impurity_correlation(self, popt, pressure, current_density):
+        """This is the least square optimized fit function for gas impurities with
+        five optimized parameters and the form
+        z = a0 + a1 * x + a2 * x + a3 * x^2 + a4 * x * y
+        popt: optimized parameters
+        pressure: absolut pressure in bar
+        current_density: current_denisty in mA/cm^2"""
+
+        volume_fraction_impurity = (popt[0] +
+                                    popt[1] * pressure +
+                                    popt[2] * current_density +
+                                    popt[3] * pressure ** 2 +
+                                    popt[4] * pressure * current_density) / 100
+
+        return volume_fraction_impurity
