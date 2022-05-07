@@ -1,6 +1,7 @@
 import numpy as np
 from tespy.components.component import Component
 from tespy.tools import ComponentProperties as dc_cp
+from tespy.tools import fluid_properties as fp
 
 from scipy.constants import e, Avogadro, R
 from tespy.tools.global_vars import molar_masses
