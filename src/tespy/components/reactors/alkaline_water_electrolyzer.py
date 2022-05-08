@@ -29,9 +29,8 @@ class AlkalineWaterElectrolyzer(Component):
                 deriv=self.pr_deriv,
                 func=self.pr_func,
                 func_params={"pr": "pr"},
-                latex=self.pr_func_doc,
-            ),
-            "cell_current": dc_cp(min_val=0, max_val=1e5),
+                latex=self.pr_func_doc),
+            "cell_current": dc_cp(min_val=0, max_val=1e4),
             "cell_voltage": dc_cp(min_val=0, max_val=3),
             "cell_surface": dc_cp(min_val=0, max_val=1e5),
         }
@@ -233,17 +232,19 @@ class AlkalineWaterElectrolyzer(Component):
     def fluid_deriv(self, increment_filter, k):
         r"""
         Calculate partial derivatives for all fluid balance equations.
-
         Returns
         -------
         deriv : ndarray
             Matrix with partial derivatives for the fluid equations.
         """
+        deriv = np.zeros(
+            (
+                self.fluid_constraints["num_eq"],
+                self.num_i + self.num_o,
+                self.num_nw_vars,
+            )
+        )
 
-        fluid_mass = self.alkaline_electrolysis()
-
-        # increment_filter[connection, variable]:
-        # jacobian[k-th equation, connection, variable]
         # equation 1
         # if not increment_filter[0, 0]:
         #     self.jacobian[k, 0, 0] = 0
@@ -675,6 +676,7 @@ class AlkalineWaterElectrolyzer(Component):
         # volume_flow_cathode = 0.3  # 3.0229952 * (number_of_cells / 80)  # [m^3/hr]
         # volume_flow_anode = 0.3  # 3.2755530 * (number_of_cells / 80)  # [m^3/hr]
 
+
         stack_voltage = number_of_cells * self.cell_voltage.val  # [V]
         # stack_current_density = 0.6  # [A/cm^2]
         # active_cell_surface = 2710  # [cm^2]
@@ -805,8 +807,8 @@ class AlkalineWaterElectrolyzer(Component):
         five optimized parameters and the form
         z = a0 + a1 * x + a2 * x + a3 * x^2 + a4 * x * y
         popt: optimized parameters
-        pressure: absolut pressure in bar
-        current_density: current_denisty in mA/cm^2"""
+        x: absolut pressure in bar
+        y: current_denisty in mA/cm^2"""
 
         volume_fraction_impurity = (popt[0] +
                                     popt[1] * pressure +
