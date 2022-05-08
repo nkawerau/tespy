@@ -807,8 +807,8 @@ class AlkalineWaterElectrolyzer(Component):
         five optimized parameters and the form
         z = a0 + a1 * x + a2 * x + a3 * x^2 + a4 * x * y
         popt: optimized parameters
-        pressure: absolut pressure in bar
-        current_density: current_denisty in mA/cm^2"""
+        x: absolut pressure in bar
+        y: current_denisty in mA/cm^2"""
 
         volume_fraction_impurity = (popt[0] +
                                     popt[1] * pressure +
