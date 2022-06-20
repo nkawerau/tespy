@@ -480,21 +480,21 @@ class TJunctionSplitter(NodeBase):
         self.pr1.val = o1[1] / i[1]
 
 
-        self.zeta1.val = (
-            (i[1] - o1[1])
-            * np.pi ** 2
-            / (4 * o1[0] ** 2 * (2 * self.outl[0].vol.val_SI))
-        )
-
-        if self.num_o == 2:
-            o2 = self.outl[1].get_flow()
-            self.pr2.val = o2[1] / i[1]
-
-            self.zeta2.val = (
-                (i[1] - o2[1])
-                * np.pi ** 2
-                / (4 * o2[0] ** 2 * (2 * self.outl[1].vol.val_SI))
-            )
+        # self.zeta1.val = (
+        #     (i[1] - o1[1])
+        #     * np.pi ** 2
+        #     / (4 * o1[0] ** 2 * (2 * self.outl[0].vol.val_SI))
+        # )
+        #
+        # if self.num_o == 2:
+        #     o2 = self.outl[1].get_flow()
+        #     self.pr2.val = o2[1] / i[1]
+        #
+        #     self.zeta2.val = (
+        #         (i[1] - o2[1])
+        #         * np.pi ** 2
+        #         / (4 * o2[0] ** 2 * (2 * self.outl[1].vol.val_SI))
+        #     )
 
     def propagate_fluid_to_target(self, inconn, start):
         r"""

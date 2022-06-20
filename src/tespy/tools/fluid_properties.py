@@ -2042,9 +2042,9 @@ def Hl(mol, T, P=None): # J / K
     if mass_concentration_no_water == 0:
         return 0
     mass_flow = get_mass_flow_properties(mol)[2] # kg/s
-    #Cp = lambda T: ec.Laliberte_heat_capacity(T, mass_concentration_no_water, Memorise.thermosteam['CASs_no_water'])* mass_flow # [J/(K*s)]
+    # Cp = lambda T: ec.Laliberte_heat_capacity(T, mass_concentration_no_water, Memorise.thermosteam['CASs_no_water'])* mass_flow # [J/(K*s)]
 
-    #H = integrate.quad(Cp, 298.15, T)[0]
+    # H = integrate.quad(Cp, 298.15, T)[0]
     H = 3000 * mass_flow * (T-298.15)
     return H # [J/s]
 
